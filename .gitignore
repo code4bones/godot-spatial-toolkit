@@ -3,6 +3,7 @@
 !/.gitignore
 !/LICENSE
 !/README.md
+!/README.ru.md
 !/addons/
 /addons/*
 !/addons/spatial_toolkit/
