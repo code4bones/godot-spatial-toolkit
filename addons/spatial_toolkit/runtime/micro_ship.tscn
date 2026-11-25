@@ -1,0 +1,148 @@
+[gd_scene load_steps=16 format=3]
+
+[ext_resource type="PackedScene" path="res://addons/spatial_toolkit/runtime/exhaust_trail.tscn" id="1_trail"]
+
+[sub_resource type="StandardMaterial3D" id="Material_hull"]
+albedo_color = Color(0.61, 0.83, 0.84, 1)
+metallic = 0.55
+roughness = 0.3
+
+[sub_resource type="StandardMaterial3D" id="Material_wings"]
+albedo_color = Color(0.78, 0.86, 0.88, 1)
+metallic = 0.6
+roughness = 0.34
+
+[sub_resource type="StandardMaterial3D" id="Material_cockpit"]
+albedo_color = Color(0.025, 0.09, 0.18, 1)
+metallic = 0.65
+roughness = 0.12
+
+[sub_resource type="StandardMaterial3D" id="Material_gold"]
+albedo_color = Color(1, 0.52, 0.13, 1)
+metallic = 0.55
+roughness = 0.28
+
+[sub_resource type="StandardMaterial3D" id="Material_engine"]
+albedo_color = Color(0.075, 0.14, 0.19, 1)
+metallic = 0.7
+roughness = 0.3
+
+[sub_resource type="StandardMaterial3D" id="Material_exhaust"]
+albedo_color = Color(0.12, 0.66, 1, 1)
+emission_enabled = true
+emission = Color(0.08, 0.55, 1, 1)
+emission_energy_multiplier = 2.0
+
+[sub_resource type="SphereMesh" id="Mesh_hull"]
+material = SubResource("Material_hull")
+radius = 0.5
+height = 1.0
+radial_segments = 24
+rings = 12
+
+[sub_resource type="SphereMesh" id="Mesh_cockpit"]
+material = SubResource("Material_cockpit")
+radius = 0.5
+height = 1.0
+radial_segments = 24
+rings = 12
+
+[sub_resource type="BoxMesh" id="Mesh_wing"]
+material = SubResource("Material_wings")
+size = Vector3(0.21, 0.025, 0.22)
+
+[sub_resource type="BoxMesh" id="Mesh_tip"]
+material = SubResource("Material_gold")
+size = Vector3(0.035, 0.04, 0.13)
+
+[sub_resource type="CylinderMesh" id="Mesh_engine"]
+material = SubResource("Material_engine")
+top_radius = 0.038
+bottom_radius = 0.045
+height = 0.1
+radial_segments = 16
+
+[sub_resource type="CylinderMesh" id="Mesh_exhaust"]
+material = SubResource("Material_exhaust")
+top_radius = 0.029
+bottom_radius = 0.029
+height = 0.008
+radial_segments = 16
+
+[sub_resource type="BoxMesh" id="Mesh_spine"]
+material = SubResource("Material_gold")
+size = Vector3(0.025, 0.025, 0.13)
+
+[sub_resource type="BoxMesh" id="Mesh_tail"]
+material = SubResource("Material_hull")
+size = Vector3(0.025, 0.08, 0.11)
+
+[node name="MicroShip" type="Node3D"]
+
+[node name="Hull" type="MeshInstance3D" parent="."]
+scale = Vector3(0.22, 0.17, 0.62)
+mesh = SubResource("Mesh_hull")
+
+[node name="Cockpit" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.065, -0.065)
+scale = Vector3(0.15, 0.1, 0.28)
+mesh = SubResource("Mesh_cockpit")
+
+[node name="PortWing" type="MeshInstance3D" parent="."]
+position = Vector3(-0.17, -0.025, 0.035)
+rotation = Vector3(0, 0.35, 0)
+mesh = SubResource("Mesh_wing")
+
+[node name="StarboardWing" type="MeshInstance3D" parent="."]
+position = Vector3(0.17, -0.025, 0.035)
+rotation = Vector3(0, -0.35, 0)
+mesh = SubResource("Mesh_wing")
+
+[node name="PortTip" type="MeshInstance3D" parent="."]
+position = Vector3(-0.275, -0.025, 0.08)
+rotation = Vector3(0, 0.35, 0)
+mesh = SubResource("Mesh_tip")
+
+[node name="StarboardTip" type="MeshInstance3D" parent="."]
+position = Vector3(0.275, -0.025, 0.08)
+rotation = Vector3(0, -0.35, 0)
+mesh = SubResource("Mesh_tip")
+
+[node name="PortEngine" type="MeshInstance3D" parent="."]
+position = Vector3(-0.075, -0.015, 0.245)
+rotation = Vector3(1.5707963, 0, 0)
+mesh = SubResource("Mesh_engine")
+
+[node name="StarboardEngine" type="MeshInstance3D" parent="."]
+position = Vector3(0.075, -0.015, 0.245)
+rotation = Vector3(1.5707963, 0, 0)
+mesh = SubResource("Mesh_engine")
+
+[node name="PortExhaust" type="MeshInstance3D" parent="."]
+position = Vector3(-0.075, -0.015, 0.298)
+rotation = Vector3(1.5707963, 0, 0)
+mesh = SubResource("Mesh_exhaust")
+
+[node name="StarboardExhaust" type="MeshInstance3D" parent="."]
+position = Vector3(0.075, -0.015, 0.298)
+rotation = Vector3(1.5707963, 0, 0)
+mesh = SubResource("Mesh_exhaust")
+
+[node name="PortTrail" parent="." instance=ExtResource("1_trail")]
+position = Vector3(-0.075, -0.015, 0.33)
+
+[node name="StarboardTrail" parent="." instance=ExtResource("1_trail")]
+position = Vector3(0.075, -0.015, 0.33)
+
+[node name="NoseStripe" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.039, -0.215)
+rotation = Vector3(0.35, 0, 0)
+mesh = SubResource("Mesh_spine")
+
+[node name="TailFin" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.065, 0.18)
+rotation = Vector3(-0.25, 0, 0)
+mesh = SubResource("Mesh_tail")
+
+[node name="RocketMount" type="Marker3D" parent="."]
+position = Vector3(0, -0.16, -0.27)

@@ -1,0 +1,72 @@
+[gd_scene load_steps=7 format=3]
+
+[sub_resource type="StandardMaterial3D" id="Material_masonry"]
+transparency = 1
+shading_mode = 0
+vertex_color_use_as_albedo = true
+
+[sub_resource type="BoxMesh" id="Mesh_chips"]
+material = SubResource("Material_masonry")
+size = Vector3(0.13, 0.18, 0.095)
+
+[sub_resource type="SphereMesh" id="Mesh_dust"]
+material = SubResource("Material_masonry")
+radius = 0.43
+height = 0.86
+radial_segments = 8
+rings = 4
+
+[sub_resource type="Gradient" id="Gradient_chips"]
+offsets = PackedFloat32Array(0, 0.7, 1)
+colors = PackedColorArray(0.69, 0.59, 0.49, 1, 0.44, 0.35, 0.27, 0.9, 0.36, 0.28, 0.21, 0)
+
+[sub_resource type="Gradient" id="Gradient_dust"]
+offsets = PackedFloat32Array(0, 0.18, 0.6, 1)
+colors = PackedColorArray(0.66, 0.56, 0.46, 0.16, 0.57, 0.48, 0.40, 0.54, 0.49, 0.45, 0.41, 0.27, 0.49, 0.45, 0.41, 0)
+
+[sub_resource type="Curve" id="Curve_dust"]
+max_value = 3.0
+_data = [Vector2(0, 0.7), 0.0, 2.0, 0, 0, Vector2(1, 3), 1.0, 0.0, 0, 0]
+point_count = 2
+
+[node name="MasonryChips" type="CPUParticles3D"]
+top_level = true
+cast_shadow = 0
+emitting = false
+amount = 180
+lifetime = 0.95
+one_shot = true
+explosiveness = 1.0
+lifetime_randomness = 0.35
+mesh = SubResource("Mesh_chips")
+particle_flag_align_y = true
+direction = Vector3(0, 1, 0)
+spread = 82.0
+gravity = Vector3(0, -10, 0)
+initial_velocity_min = 4.0
+initial_velocity_max = 21.0
+angular_velocity_min = -480.0
+angular_velocity_max = 480.0
+scale_amount_min = 0.6
+scale_amount_max = 1.8
+color_ramp = SubResource("Gradient_chips")
+
+[node name="Dust" type="CPUParticles3D" parent="."]
+cast_shadow = 0
+emitting = false
+amount = 54
+lifetime = 1.45
+one_shot = true
+explosiveness = 0.88
+mesh = SubResource("Mesh_dust")
+direction = Vector3(0, 1, 0)
+spread = 78.0
+gravity = Vector3(0, 0.55, 0)
+initial_velocity_min = 1.0
+initial_velocity_max = 6.5
+damping_min = 1.4
+damping_max = 3.2
+scale_amount_min = 0.55
+scale_amount_max = 1.7
+scale_amount_curve = SubResource("Curve_dust")
+color_ramp = SubResource("Gradient_dust")

@@ -1,0 +1,65 @@
+[gd_scene load_steps=10 format=3]
+
+[ext_resource type="Script" path="res://addons/spatial_toolkit/runtime/patrol_robot.gd" id="1_robot"]
+
+[sub_resource type="StandardMaterial3D" id="Armor"]
+albedo_color = Color(0.24, 0.30, 0.34, 1)
+metallic = 0.4
+roughness = 0.52
+
+[sub_resource type="StandardMaterial3D" id="Track"]
+albedo_color = Color(0.07, 0.08, 0.095, 1)
+roughness = 0.9
+
+[sub_resource type="StandardMaterial3D" id="Signal"]
+shading_mode = 0
+albedo_color = Color(1, 0.34, 0.085, 1)
+
+[sub_resource type="BoxMesh" id="Hull"]
+material = SubResource("Armor")
+size = Vector3(1.35, 0.62, 1.8)
+
+[sub_resource type="BoxMesh" id="Tracks"]
+material = SubResource("Track")
+size = Vector3(0.36, 0.42, 1.94)
+
+[sub_resource type="BoxMesh" id="Head"]
+material = SubResource("Armor")
+size = Vector3(0.82, 0.42, 0.72)
+
+[sub_resource type="BoxMesh" id="Visor"]
+material = SubResource("Signal")
+size = Vector3(0.66, 0.11, 0.055)
+
+[sub_resource type="BoxShape3D" id="Shape_patrol"]
+size = Vector3(1.84, 1.19, 1.94)
+
+[node name="PatrolRobot" type="AnimatableBody3D" groups=["spatial_road_patrol"]]
+collision_layer = 1048576
+collision_mask = 0
+sync_to_physics = false
+script = ExtResource("1_robot")
+
+[node name="Hitbox" type="CollisionShape3D" parent="."]
+position = Vector3(0, 0.595, 0)
+shape = SubResource("Shape_patrol")
+
+[node name="Hull" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.52, 0)
+mesh = SubResource("Hull")
+
+[node name="LeftTrack" type="MeshInstance3D" parent="."]
+position = Vector3(-0.73, 0.21, 0)
+mesh = SubResource("Tracks")
+
+[node name="RightTrack" type="MeshInstance3D" parent="."]
+position = Vector3(0.73, 0.21, 0)
+mesh = SubResource("Tracks")
+
+[node name="Head" type="MeshInstance3D" parent="."]
+position = Vector3(0, 0.98, -0.31)
+mesh = SubResource("Head")
+
+[node name="Visor" type="MeshInstance3D" parent="."]
+position = Vector3(0, 1.03, -0.685)
+mesh = SubResource("Visor")

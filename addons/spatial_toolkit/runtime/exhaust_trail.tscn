@@ -1,0 +1,36 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://addons/spatial_toolkit/runtime/exhaust_trail.gd" id="1_trail"]
+
+[sub_resource type="StandardMaterial3D" id="Material_plume"]
+transparency = 1
+shading_mode = 0
+vertex_color_use_as_albedo = true
+
+[sub_resource type="SphereMesh" id="Mesh_plume"]
+material = SubResource("Material_plume")
+radius = 0.023
+height = 0.20
+radial_segments = 6
+rings = 3
+
+[sub_resource type="Gradient" id="Gradient_plume"]
+offsets = PackedFloat32Array(0, 0.22, 0.63, 1)
+colors = PackedColorArray(0.72, 0.97, 1, 0.9, 0.13, 0.7, 1, 0.64, 0.09, 0.42, 0.93, 0.25, 0.08, 0.27, 0.8, 0)
+
+[node name="ExhaustTrail" type="CPUParticles3D"]
+script = ExtResource("1_trail")
+cast_shadow = 0
+amount = 192
+lifetime = 0.45
+local_coords = true
+mesh = SubResource("Mesh_plume")
+particle_flag_align_y = true
+direction = Vector3(0, 0, 1)
+spread = 3.0
+gravity = Vector3(0, 0, 0)
+initial_velocity_min = 1.8
+initial_velocity_max = 2.8
+scale_amount_min = 0.8
+scale_amount_max = 1.2
+color_ramp = SubResource("Gradient_plume")

@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "id": "cyberpunk-industrial-v1",
+  "display_name": "Cyberpunk Industrial v1",
+  "generator_version": "0.6.0",
+  "seed": 42042,
+  "target": {
+    "scope": "saved_native_map",
+    "preserve_source_geometry": true
+  },
+  "facades": {
+    "palette": [
+      "dark_concrete",
+      "oxidized_metal",
+      "dark_glass"
+    ],
+    "neon": {
+      "enabled": true,
+      "probability": 0.55,
+      "colors": [
+        "#00E5FF",
+        "#FF28A9",
+        "#FFB000"
+      ]
+    },
+    "windows": {
+      "enabled": true,
+      "lit_probability": 0.35
+    }
+  },
+  "rooftops": {
+    "vents": true,
+    "antennas": true,
+    "prop_probability": 0.4
+  },
+  "signage": {
+    "enabled": true,
+    "large_sign_probability": 0.15,
+    "allow_generated_images": false
+  },
+  "environment": {
+    "preset": "source",
+    "fog": false,
+    "wet_asphalt": false
+  },
+  "performance": {
+    "max_dynamic_lights_per_chunk": 0,
+    "prefer_multimesh": true,
+    "chunk_size_m": 5000,
+    "max_buildings": 10000,
+    "max_decor_instances": 100000,
+    "max_skin_triangles": 500000
+  },
+  "provenance": {
+    "asset_origin": "Procedural geometry and materials authored in this project; no external textures or logos",
+    "assumptions": [
+      "Art-directed cladding and decorative emissive panels, not surveyed OSM facade or BIM semantics",
+      "Source daylight/environment and ground materials are retained; night, fog and wet asphalt are deferred"
+    ]
+  }
+}

@@ -1,0 +1,28 @@
+# The GitHub repository distributes the standalone addon.
+/*
+!/.gitignore
+!/LICENSE
+!/README.md
+!/addons/
+/addons/*
+!/addons/spatial_toolkit/
+/addons/spatial_toolkit/assets/audio/
+
+# Editor caches and local tooling can also appear inside addon directories.
+.godot/
+.agents/
+.codex/
+.mcp-xchange/
+.mcp.json
+.mcpsession.json
+samples/
+generated/
+artifacts/
+movs/
+__pycache__/
+*.py[cod]
+.venv/
+.env
+.env.*
+node_modules/
+.DS_Store

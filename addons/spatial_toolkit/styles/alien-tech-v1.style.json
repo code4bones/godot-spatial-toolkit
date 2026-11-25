@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "id": "alien-tech-v1",
+  "display_name": "Alien Technological Hull v1",
+  "generator_version": "0.7.0",
+  "seed": 42042,
+  "target": {
+    "scope": "saved_native_map",
+    "preserve_source_geometry": true
+  },
+  "facades": {
+    "palette": [
+      "dark_concrete",
+      "oxidized_metal",
+      "dark_glass"
+    ],
+    "neon": {
+      "enabled": true,
+      "probability": 0.35,
+      "colors": [
+        "#00E5FF",
+        "#FF28A9",
+        "#FFB000"
+      ]
+    },
+    "windows": {
+      "enabled": false,
+      "lit_probability": 0.0
+    },
+    "technology": {
+      "enabled": true,
+      "archetypes": [
+        "layered_armor",
+        "structural_ribs",
+        "cellular_reactor",
+        "segmented_hull"
+      ],
+      "panel_scale_m": 6.0,
+      "emission_strength": 1.8
+    }
+  },
+  "rooftops": {
+    "vents": true,
+    "antennas": true,
+    "prop_probability": 0.4
+  },
+  "signage": {
+    "enabled": false,
+    "large_sign_probability": 0.0,
+    "allow_generated_images": false
+  },
+  "environment": {
+    "preset": "source",
+    "fog": false,
+    "wet_asphalt": false
+  },
+  "performance": {
+    "max_dynamic_lights_per_chunk": 0,
+    "prefer_multimesh": true,
+    "chunk_size_m": 5000,
+    "max_buildings": 10000,
+    "max_decor_instances": 100000,
+    "max_skin_triangles": 500000
+  },
+  "provenance": {
+    "based_on": "addons/spatial_toolkit/styles/cyberpunk-industrial-v1.style.json",
+    "asset_origin": "Project-authored procedural alien hull shader and primitives; no external textures, logos or AI images",
+    "assumptions": [
+      "Art-directed alien technological armour over all source wall/roof triangles; variants and emissive service channels are fictional decoration, not OSM/BIM facade evidence",
+      "Source daylight/environment and ground materials are retained; night, fog and wet asphalt are deferred"
+    ]
+  }
+}

@@ -1,0 +1,98 @@
+[gd_scene load_steps=10 format=3]
+
+[ext_resource type="Script" path="res://addons/spatial_toolkit/runtime/drone_projectile.gd" id="1_projectile"]
+
+[sub_resource type="Shader" id="Shader_tracer"]
+code = "shader_type spatial;
+render_mode unshaded, depth_draw_never;
+
+uniform float fade : hint_range(0.0, 1.0) = 1.0;
+varying float along;
+
+void vertex() {
+	along = VERTEX.y + 0.5;
+}
+
+void fragment() {
+	ALBEDO = mix(vec3(1.0, 0.28, 0.035), vec3(1.0, 0.92, 0.65), along);
+	ALPHA = pow(clamp(along, 0.0, 1.0), 1.25) * fade;
+}
+"
+
+[sub_resource type="ShaderMaterial" id="Material_tracer"]
+resource_local_to_scene = true
+shader = SubResource("Shader_tracer")
+
+[sub_resource type="CylinderMesh" id="Mesh_tracer"]
+top_radius = 0.25
+bottom_radius = 0.015
+height = 1.0
+radial_segments = 8
+rings = 0
+
+[sub_resource type="StandardMaterial3D" id="Material_shell"]
+shading_mode = 0
+albedo_color = Color(0.94, 0.96, 0.99, 1)
+
+[sub_resource type="StandardMaterial3D" id="Material_nose"]
+shading_mode = 0
+albedo_color = Color(1, 0.32, 0.07, 1)
+
+[sub_resource type="CylinderMesh" id="Mesh_shell"]
+material = SubResource("Material_shell")
+top_radius = 0.19
+bottom_radius = 0.16
+height = 0.88
+radial_segments = 12
+rings = 0
+
+[sub_resource type="CylinderMesh" id="Mesh_nose"]
+material = SubResource("Material_nose")
+top_radius = 0.0
+bottom_radius = 0.19
+height = 0.42
+radial_segments = 12
+rings = 0
+
+[sub_resource type="BoxMesh" id="Mesh_fin"]
+material = SubResource("Material_nose")
+size = Vector3(0.68, 0.045, 0.28)
+
+[node name="DroneProjectile" type="Node3D"]
+top_level = true
+script = ExtResource("1_projectile")
+
+[node name="Rocket" type="Node3D" parent="."]
+scale = Vector3(1, 1, 0.05)
+
+[node name="Shell" type="MeshInstance3D" parent="Rocket"]
+position = Vector3(0, 0, 0.86)
+rotation = Vector3(-1.5707963, 0, 0)
+cast_shadow = 0
+mesh = SubResource("Mesh_shell")
+
+[node name="Nose" type="MeshInstance3D" parent="Rocket"]
+position = Vector3(0, 0, 0.21)
+rotation = Vector3(-1.5707963, 0, 0)
+cast_shadow = 0
+mesh = SubResource("Mesh_nose")
+
+[node name="HorizontalFins" type="MeshInstance3D" parent="Rocket"]
+position = Vector3(0, 0, 1.14)
+cast_shadow = 0
+mesh = SubResource("Mesh_fin")
+
+[node name="VerticalFins" type="MeshInstance3D" parent="Rocket"]
+position = Vector3(0, 0, 1.14)
+rotation = Vector3(0, 0, 1.5707963)
+cast_shadow = 0
+mesh = SubResource("Mesh_fin")
+
+[node name="Tracer" type="MeshInstance3D" parent="."]
+visible = false
+position = Vector3(0, 0, 1.425)
+rotation = Vector3(-1.5707963, 0, 0)
+scale = Vector3(1, 0.25, 1)
+material_override = SubResource("Material_tracer")
+cast_shadow = 0
+mesh = SubResource("Mesh_tracer")
