@@ -8,12 +8,13 @@ const DEFAULT_CONTROLLER := "signed_wheel_drone"
 const CONTROLLERS := {
 	DEFAULT_CONTROLLER: preload("res://addons/spatial_toolkit/runtime/drone_camera.gd"),
 	"viewport_bank": preload("res://addons/spatial_toolkit/runtime/viewport_bank_camera.gd"),
+	"reticle_flight": preload("res://addons/spatial_toolkit/runtime/reticle_flight_camera.gd"),
 }
-const CONTROLLER_IDS: Array[String] = [DEFAULT_CONTROLLER, "viewport_bank"]
+const CONTROLLER_IDS: Array[String] = [DEFAULT_CONTROLLER, "viewport_bank", "reticle_flight"]
 const CAMERA_PATH := ^"CameraPivot/CameraBoom/FlyCamera"
 
 @export_group("Drone Controls")
-@export_enum("Classic:0", "Bank and Edge Tracking:1") var flight_controller := 0:
+@export_enum("Classic:0", "Bank and Edge Tracking:1", "Reticle Flight:2") var flight_controller := 0:
 	get:
 		var camera := get_node_or_null(CAMERA_PATH) as Camera3D
 		if camera != null:
@@ -39,8 +40,9 @@ const CAMERA_PATH := ^"CameraPivot/CameraBoom/FlyCamera"
 func _validate_property(property: Dictionary) -> void:
 	Localization.localize_inspector_group(property)
 	if Engine.is_editor_hint() and property.name == &"flight_controller":
-		property.hint_string = "%s:0,%s:1" % [
+		property.hint_string = "%s:0,%s:1,%s:2" % [
 			Localization.translate(&"Classic"), Localization.translate(&"Bank and Edge Tracking"),
+			Localization.translate(&"Reticle Flight"),
 		]
 
 func is_pitch_input_inverted() -> bool:
@@ -57,6 +59,8 @@ func _apply_controller(controller: String) -> void:
 	var parameters := _inactive_camera_parameters.duplicate()
 	for key: StringName in _camera_exports(previous):
 		parameters[key] = camera.get(key)
+	if is_equal_approx(float(camera.get(&"vertical_screen_offset")), float(camera.call(&"default_vertical_screen_offset"))):
+		parameters.erase(&"vertical_screen_offset")
 	camera.set_script(selected)
 	for key: StringName in _camera_exports(selected):
 		if parameters.has(key):

@@ -6,6 +6,9 @@
 !/README.ru.md
 !/VERSION
 !/CHANGELOG.md
+!/docs/
+/docs/*
+!/docs/DRONE_CONTROLS.md
 !/addons/
 /addons/*
 !/addons/spatial_toolkit/

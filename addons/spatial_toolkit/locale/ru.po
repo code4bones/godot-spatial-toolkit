@@ -95,11 +95,20 @@ msgstr "Ночь"
 msgid "Drone Controls"
 msgstr "Управление дроном"
 
+msgid "Camera Framing"
+msgstr "Кадрирование камеры"
+
 msgid "Classic"
 msgstr "Классический"
 
 msgid "Bank and Edge Tracking"
 msgstr "Крен и слежение у края"
+
+msgid "Reticle Flight"
+msgstr "Полёт по прицелу"
+
+msgid "Reticle Flight Controls"
+msgstr "Управление полётом по прицелу"
 
 msgid "Drone Audio"
 msgstr "Звук дрона"
@@ -979,6 +988,9 @@ msgstr "Не удалось прочитать подготовленную ге
 #, c-format
 msgid "Could not save %s: %s"
 msgstr "Не удалось сохранить %s: %s"
+
+msgid "Could not save the preview for %s: %s"
+msgstr "Не удалось сохранить предпросмотр для %s: %s"
 
 #, c-format
 msgid "Could not save near-window details: %s"

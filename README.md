@@ -2,7 +2,7 @@
 
 [Русская версия](./README.ru.md)
 
-Spatial Toolkit **v0.8.0** is a Godot 4 editor addon for turning GeoJSON and OpenStreetMap data into editable worlds and playable 3D maps. It has been tested with Godot 4.7.2 and 4.6.3.
+Spatial Toolkit **v0.9.0** is a Godot 4 editor addon for turning GeoJSON and OpenStreetMap data into editable worlds and playable 3D maps. It has been tested with Godot 4.7.2 and 4.6.3.
 
 ## Install
 
@@ -43,4 +43,4 @@ flowchart TD
 
 Open a local GeoJSON file in Map Explorer to start without fetching an area. The **Textures** tab imports PBR materials from Poly Haven and ambientCG. Double-click a catalog entry to import it, then drag the saved material to a compatible Inspector field. Flight audio can be assigned in the camera Inspector.
 
-[Changelog](./CHANGELOG.md) · [MIT license](./LICENSE)
+[Drone controls](./docs/DRONE_CONTROLS.md#drone-controls) · [Changelog](./CHANGELOG.md) · [MIT license](./LICENSE)

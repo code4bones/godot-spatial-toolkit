@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-27
+
+- Document the three drone controllers, camera and overview controls, and settings in the drone controls guide.
+- Fire with left click in Reticle Flight. Hold right mouse to look around while the drone maintains its course.
+- Add Reticle Flight to the baked drone's controller options. Mouse movement steers the center reticle, W/S adjust cruise speed, and A/D and Q/E apply lateral and vertical thrust.
+- Rebuild the Chunks preview viewport if the open dock still holds a legacy instance after a script reload.
+- Save a PNG thumbnail with each new or updated world square. The Chunks tab reads it on first selection and refreshes the preview after scene edits.
+- Adjust the drone's vertical position in the third-person view under FlyCamera → Camera Framing. The default shifts it down by 12% of the viewport height.
+- Build Chunks preview geometry over several frames and cache rendered previews for repeat selections. Read saved scene resources on the editor thread to avoid the threaded preview regression.
+
 ## [0.8.0] - 2026-11-26
 
 - Create editable worlds from multiple GeoJSON sources. Update an existing world by rebuilding affected squares and sharing appearance settings through its attribute bank.

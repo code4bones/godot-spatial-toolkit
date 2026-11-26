@@ -14,6 +14,7 @@ const CONTROLLERS := Drone.CONTROLLERS
 const CONTROLLER_LABELS := {
 	"signed_wheel_drone": "Классический",
 	"viewport_bank": "Крен и слежение у края · эксперимент",
+	"reticle_flight": "Полёт по прицелу",
 }
 const CRAFT := preload("res://addons/spatial_toolkit/runtime/micro_ship.tscn")
 const EYE_HEIGHT := 0.7

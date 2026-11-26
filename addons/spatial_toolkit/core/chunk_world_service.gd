@@ -4,6 +4,7 @@ extends "res://addons/spatial_toolkit/core/map_import_service.gd"
 
 const Bank := preload("res://addons/spatial_toolkit/core/spatial_attribute_bank.gd")
 const ChunkInfo := preload("res://addons/spatial_toolkit/core/world_chunk_info.gd")
+const ChunkThumbnail := preload("res://addons/spatial_toolkit/core/chunk_thumbnail.gd")
 const MANIFEST := "world.json"
 const BANK_FILE := "attribute_bank.tres"
 const SCHEMA := 1
@@ -252,6 +253,10 @@ func _save_chunk(cell: Dictionary, previous_scene: String, manifest_path: String
 	staging.queue_free()
 	if error != OK:
 		return _error(Localization.translate("Could not save %s: %s") % [chunk_id, error_string(error)])
+	var thumbnail_error := await ChunkThumbnail.save_for_scene(self, packed.get_state(), scene_path,
+		func() -> bool: return _cancelled or _closing)
+	if thumbnail_error != OK and thumbnail_error != ERR_SKIP:
+		push_warning(Localization.translate("Could not save the preview for %s: %s") % [chunk_id, error_string(thumbnail_error)])
 	DirAccess.remove_absolute(payload)
 	return {"ok": true, "scene": scene_path, "info": info}
 

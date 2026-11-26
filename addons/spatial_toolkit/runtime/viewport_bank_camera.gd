@@ -93,13 +93,16 @@ func _follow_camera(delta: float) -> void:
 	var horizontal_back := right.cross(Vector3.UP).normalized()
 	var yaw := atan2(-right.z, right.x)
 	var prior_yaw := yaw
-	var back := global_basis.z.normalized()
+	var back := _pivot.global_basis.z.normalized()
 	var pitch := atan2(-back.y, back.dot(horizontal_back))
 	var advance := horizontal_back * (eye - _pivot.global_position).dot(horizontal_back)
 	var stationary_eye := eye - advance
 	var extent := get_viewport().get_visible_rect().size
 	var center := extent * 0.5
+	center.y += extent.y * _chase_vertical_offset()
 	var half_side := minf(extent.x, extent.y) * 0.5 * frame_limit
+	var min_y := maxf(0.0, center.y - half_side)
+	var max_y := minf(extent.y, center.y + half_side)
 	if _has_destination:
 		_turned_at_edge = false
 		_lateral_recenter_remaining = 0.0
@@ -115,9 +118,9 @@ func _follow_camera(delta: float) -> void:
 		_lateral_recenter_remaining = maxf(0.0, _lateral_recenter_remaining - delta)
 		_center_with_yaw = is_zero_approx(_lateral_recenter_remaining)
 	if half_side > 0.0 and not is_position_behind(stationary_eye):
-		var displacement := unproject_position(stationary_eye) - center
-		_turn_at_horizontal_edge(displacement.x, half_side, delta)
-		if absf(displacement.y) > half_side:
+		var screen := unproject_position(stationary_eye)
+		_turn_at_horizontal_edge(screen.x - center.x, half_side, delta)
+		if screen.y < min_y or screen.y > max_y:
 			_track_pitch = true
 	var weight := 1.0 - exp(-delta / camera_lag_seconds)
 	var camera_origin := global_position
@@ -155,17 +158,16 @@ func _follow_camera(delta: float) -> void:
 
 	# Frame with the final camera orientation and keep the horizontal axis
 	# tied to yaw as the boom passes through vertical.
-	back = global_basis.z.normalized()
 	horizontal_back = Vector3(sin(yaw), 0.0, cos(yaw))
 	advance = cruise_advance if pan_to_ship else horizontal_back * (eye - _pivot.global_position).dot(horizontal_back)
 	stationary_eye = eye - advance
-	var depth := (global_position - stationary_eye).dot(back)
+	var camera_pose := get_camera_transform()
+	var depth := (camera_pose.origin - stationary_eye).dot(camera_pose.basis.z)
 	var desired := eye
 	if depth > near and half_side > 0.0:
 		desired = _pivot.global_position + advance
 		var screen := unproject_position(stationary_eye)
-		var limit := Vector2.ONE * half_side
-		var bounded := screen.clamp(center - limit, center + limit)
+		var bounded := screen.clamp(Vector2(center.x - half_side, min_y), Vector2(center.x + half_side, max_y))
 		if _has_destination or orbiting:
 			bounded.x = lerpf(bounded.x, center.x, weight)
 		if _track_pitch:

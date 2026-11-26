@@ -3,6 +3,7 @@ extends "res://addons/spatial_toolkit/runtime/fly_camera.gd"
 ## Physical drone with signed wheel cruise, pointer destinations and chase view.
 
 const Localization := preload("res://addons/spatial_toolkit/ui/editor_localization.gd")
+const DEFAULT_VERTICAL_SCREEN_OFFSET := 12.0
 const MAX_BANK := deg_to_rad(72.0)
 const INVERT_WS_SETTING := "spatial_toolkit/flight/invert_ws"
 const EXHAUST_TRAIL := preload("res://addons/spatial_toolkit/runtime/exhaust_trail.gd")
@@ -33,6 +34,15 @@ const RETICLE := preload("res://addons/spatial_toolkit/runtime/drone_reticle.gd"
 
 @export_range(1.0, 50.0, 0.5) var crash_impact_speed_mps := 8.0
 @export_range(0.5, 5.0, 0.1) var crash_respawn_delay_seconds := 1.5
+
+@export_group("Camera Framing")
+## Vertical shift as a percentage of the viewport height in third person.
+## Positive values place the drone lower. Zero uses the authored camera angle.
+@export_range(-25.0, 25.0, 1.0, "suffix:%") var vertical_screen_offset := DEFAULT_VERTICAL_SCREEN_OFFSET:
+	set(value):
+		vertical_screen_offset = clampf(value, -25.0, 25.0) if is_finite(value) else default_vertical_screen_offset()
+		if not Engine.is_editor_hint() and is_node_ready():
+			_update_chase_framing()
 
 @export_group("Drone Audio")
 ## Leave empty to use the engine loop bundled with Spatial Toolkit.
@@ -78,20 +88,26 @@ var _detached_pivot := false
 var _follow_velocity := Vector3.ZERO
 var _follow_last_position := Vector3.ZERO
 var _reticle: Control
+var _authored_camera_pitch := 0.0
 
 func _validate_property(property: Dictionary) -> void:
 	Localization.localize_inspector_group(property)
+
+func default_vertical_screen_offset() -> float:
+	return DEFAULT_VERTICAL_SCREEN_OFFSET
 
 func _ready() -> void:
 	if Engine.is_editor_hint():
 		super._ready()
 		return
+	_authored_camera_pitch = rotation.x
 	third_person = true
 	super._ready()
 	if _body == null or _pivot == null:
 		push_error("Drone camera requires a CharacterBody3D / CameraPivot / SpringArm3D rig")
 		_flight_active = false
 		return
+	get_viewport().size_changed.connect(_update_chase_framing)
 	_drone_yaw = _pivot.global_rotation.y
 	_drone_pitch = _pivot.global_rotation.x
 	_spawn_position = _body.global_position
@@ -534,6 +550,22 @@ func _apply_view_mode() -> void:
 	if _detached_pivot:
 		_pivot.global_position = point
 	_update_near_plane()
+	_update_chase_framing()
+
+func _chase_vertical_offset() -> float:
+	return vertical_screen_offset * 0.01 if third_person and projection == PROJECTION_PERSPECTIVE else 0.0
+
+func _update_chase_framing() -> void:
+	# Map generation sets the view mode before the runtime rig is initialized.
+	if _boom == null or not is_inside_tree():
+		return
+	var offset := _chase_vertical_offset()
+	var tilt := 0.0
+	if not is_zero_approx(offset):
+		# A pitch at the optical center shifts the view without moving the swept boom.
+		var half_height := get_camera_projection().get_viewport_half_extents().y
+		tilt = atan(2.0 * offset * half_height / near)
+	rotation.x = _authored_camera_pitch + tilt
 
 func _update_near_plane() -> void:
 	var close := maxf(0.001, close_near_m) if is_finite(close_near_m) else 0.05
