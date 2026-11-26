@@ -1,6 +1,8 @@
+@tool
 extends "res://addons/spatial_toolkit/runtime/fly_camera.gd"
 ## Physical drone with signed wheel cruise, pointer destinations and chase view.
 
+const Localization := preload("res://addons/spatial_toolkit/ui/editor_localization.gd")
 const MAX_BANK := deg_to_rad(72.0)
 const INVERT_WS_SETTING := "spatial_toolkit/flight/invert_ws"
 const EXHAUST_TRAIL := preload("res://addons/spatial_toolkit/runtime/exhaust_trail.gd")
@@ -77,7 +79,13 @@ var _follow_velocity := Vector3.ZERO
 var _follow_last_position := Vector3.ZERO
 var _reticle: Control
 
+func _validate_property(property: Dictionary) -> void:
+	Localization.localize_inspector_group(property)
+
 func _ready() -> void:
+	if Engine.is_editor_hint():
+		super._ready()
+		return
 	third_person = true
 	super._ready()
 	if _body == null or _pivot == null:
@@ -104,7 +112,7 @@ func _ready() -> void:
 	_update_near_plane()
 
 func _exit_tree() -> void:
-	if current:
+	if not Engine.is_editor_hint() and current:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 		Input.set_default_cursor_shape(Input.CURSOR_ARROW)
 
@@ -137,6 +145,8 @@ func _physics_process(delta: float) -> void:
 	_update_reticle()
 
 func _flight_controls_ready(delta: float) -> bool:
+	if Engine.is_editor_hint():
+		return false
 	_update_near_plane()
 	if _respawn_remaining > 0.0:
 		_respawn_remaining = maxf(0.0, _respawn_remaining - delta)
@@ -188,7 +198,10 @@ func _manual_step(pitch_input: float, yaw_input: float, forward_speed: float, de
 
 func _pitch_input() -> float:
 	var pitch := float(Input.is_physical_key_pressed(KEY_W)) - float(Input.is_physical_key_pressed(KEY_S))
-	return -pitch if ProjectSettings.get_setting(INVERT_WS_SETTING, false) else pitch
+	var inverted := bool(ProjectSettings.get_setting(INVERT_WS_SETTING, false))
+	if _body != null and _body.has_method("is_pitch_input_inverted"):
+		inverted = bool(_body.call("is_pitch_input_inverted"))
+	return -pitch if inverted else pitch
 
 func _adjust_cruise_speed(notches: float) -> void:
 	var previous_speed := absf(_cruise_speed_mps)
@@ -546,6 +559,8 @@ func _update_near_plane() -> void:
 	near = safe_near
 
 func _unhandled_input(event: InputEvent) -> void:
+	if Engine.is_editor_hint():
+		return
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_TAB:
 		_toggle_overview()
 		get_viewport().set_input_as_handled()

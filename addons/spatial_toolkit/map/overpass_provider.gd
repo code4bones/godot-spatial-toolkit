@@ -87,6 +87,27 @@ static func convert(body: PackedByteArray, bbox: Dictionary, endpoint: String, l
 		"source": {"provider": endpoint, "bbox": bbox, "layers": layers, "skipped": skipped,
 			"osm3s": result.get("osm3s", {}), "attribution": "© OpenStreetMap contributors"}}
 
+## Count exported features using the same exclusive layer classification as the extractors.
+static func count_features_by_layer(data: Dictionary, fallback_layers: Array = []) -> Dictionary:
+	var features: Variant = data.get("features")
+	if not features is Array:
+		return {}
+	var source: Variant = data.get("source")
+	var requested: Variant = source.get("layers", fallback_layers) if source is Dictionary else fallback_layers
+	if not requested is Array:
+		requested = fallback_layers
+	var counts := {}
+	for layer: Variant in requested:
+		if LAYERS.has(layer):
+			counts[layer] = 0
+	for feature: Variant in features:
+		if not feature is Dictionary or not feature.get("properties") is Dictionary:
+			continue
+		var layer := _layer(feature["properties"])
+		if not layer.is_empty():
+			counts[layer] = counts.get(layer, 0) + 1
+	return counts
+
 static func _layer(tags: Dictionary) -> String:
 	if tags.get("building", "no") != "no":
 		return "buildings"

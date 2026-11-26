@@ -133,16 +133,21 @@ static func _layout_material(original: Material, layout: Dictionary, floor_heigh
 		return null
 	var material := facade.duplicate() as ShaderMaterial
 	material.set_shader_parameter("open_windows", false)
+	configure_section_layout(material, layout, floor_height, recess_depth_m)
+	return material
+
+static func configure_section_layout(material: ShaderMaterial, layout: Dictionary, floor_height: float,
+		recess_depth_m := 0.0) -> void:
 	material.set_shader_parameter("floor_height", floor_height)
 	material.set_shader_parameter("section_windows", true)
 	material.set_shader_parameter("section_first_level", layout.get("first_level", 1))
-	material.set_shader_parameter("section_wall_count", layout["walls"].size())
+	material.set_shader_parameter("section_wall_count", layout["wall_count"] if layout.has("wall_count") else layout["walls"].size())
 	material.set_shader_parameter("section_window_vertical", layout["vertical"])
+	material.set_shader_parameter("section_window_half_width_m", float(layout.get("width_m", SpatialWindowLayout.DEFAULT_WIDTH_M)) * 0.5)
 	material.set_shader_parameter("section_window_atlas", layout["texture"])
 	material.set_shader_parameter("section_light_offset", layout.get("light_offset", -1))
 	if recess_depth_m > 0.0:
 		material.set_shader_parameter("section_window_depth_m", recess_depth_m)
-	return material
 
 static func seal_openings(building: MeshInstance3D, map: Node3D, world_scale: float) -> void:
 	var openings: Dictionary = building.get_meta("facade_openings", {})

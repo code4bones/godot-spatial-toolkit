@@ -1,6 +1,11 @@
-"""Standalone map backend launcher. Stdout contains exactly one JSON result."""
+"""Standalone map backend launcher with one stdout result and stderr progress."""
 import json
 import sys
+
+
+def _report_progress(phase, done, total):
+    payload = json.dumps([phase, done, total], separators=(",", ":"))
+    print("SPATIAL_PROGRESS " + payload, file=sys.stderr, flush=True)
 
 
 def main():
@@ -8,7 +13,7 @@ def main():
         if sys.version_info < (3, 10):
             raise RuntimeError("Python >= 3.10 required")
         from spatial_backend.cli import run
-        result = run(sys.argv[1:])
+        result = run(sys.argv[1:], progress=_report_progress)
         print(json.dumps(result, ensure_ascii=False, allow_nan=False))
         return 0
     except Exception as exc:

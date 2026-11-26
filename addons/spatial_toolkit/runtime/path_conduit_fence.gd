@@ -21,17 +21,23 @@ const POST_NODE := "modular_chainlink_fence_post"
 
 var _obstacles: Dictionary
 var _panel_height_m: float
+var _side_offset_m: float
+var _max_span_m: float
 var _chunks: Dictionary = {}
 var _posts: Dictionary = {}
 var _sources: Dictionary = {}
 var _hills: Array[Dictionary] = []
 
-func _init(features: Array, road_ids: Dictionary, neighbors: Dictionary, pipe_crown_m: float) -> void:
-	_obstacles = build_spatial_index(features, road_ids, neighbors)
-	_panel_height_m = pipe_crown_m + TOP_CLEARANCE_M - BASE_GAP_M
+func _init(features: Array, road_ids: Dictionary, neighbors: Dictionary, pipe_crown_m: float,
+		side_offset_m := SIDE_OFFSET_M, max_span_m := SPAN_M, top_clearance_m := TOP_CLEARANCE_M,
+		pipe_clearance_m := PIPE_CLEARANCE_M) -> void:
+	_obstacles = build_spatial_index(features, road_ids, neighbors, pipe_clearance_m)
+	_panel_height_m = pipe_crown_m + top_clearance_m - BASE_GAP_M
+	_side_offset_m = side_offset_m
+	_max_span_m = maxf(MIN_SPAN_M, max_span_m)
 
 func add_route(points: PackedVector2Array, start_trim_m: float, end_trim_m: float, source_ids: Dictionary) -> void:
-	var spans := plan_route(points, start_trim_m, end_trim_m, _obstacles)
+	var spans := plan_route(points, start_trim_m, end_trim_m, _obstacles, _side_offset_m, _max_span_m)
 	if spans.is_empty():
 		return
 	_sources.merge(source_ids)
@@ -63,7 +69,7 @@ func add_to(host: Node3D, library: PackedScene, scale_factor: float, ground_y: f
 	overlay.set_meta("asset_source", library.resource_path)
 	overlay.set_meta("layout_version", 2)
 	overlay.set_meta("panel_height_m", _panel_height_m)
-	overlay.set_meta("max_span_m", SPAN_M)
+	overlay.set_meta("max_span_m", _max_span_m)
 	var ids := _sources.keys()
 	ids.sort()
 	overlay.set_meta("source_ids", PackedStringArray(ids))
@@ -225,7 +231,8 @@ func _batch(overlay: Node3D, label: String, mesh: Mesh, transforms: Array[Transf
 	node.visibility_range_end = far_m
 	overlay.add_child(node)
 
-static func build_spatial_index(features: Array, road_ids: Dictionary, neighbors: Dictionary) -> Dictionary:
+static func build_spatial_index(features: Array, road_ids: Dictionary, neighbors: Dictionary,
+		pipe_clearance_m := PIPE_CLEARANCE_M) -> Dictionary:
 	var cells := {}
 	for feature: Dictionary in features:
 		var geometry: Dictionary = feature.get("geometry", {})
@@ -241,23 +248,23 @@ static func build_spatial_index(features: Array, road_ids: Dictionary, neighbors
 	for a: Vector2 in neighbors:
 		for b: Vector2 in neighbors[a]:
 			if a.x < b.x or (a.x == b.x and a.y < b.y):
-				_index_edge(cells, a, b, PIPE_CLEARANCE_M)
+				_index_edge(cells, a, b, pipe_clearance_m)
 	return cells
 
 static func plan_route(points: PackedVector2Array, start_trim_m: float, end_trim_m: float,
-		obstacles: Dictionary) -> Array[PackedVector2Array]:
+		obstacles: Dictionary, side_offset_m := SIDE_OFFSET_M, max_span_m := SPAN_M) -> Array[PackedVector2Array]:
 	var spans: Array[PackedVector2Array] = []
 	var route := _trimmed(points, start_trim_m, end_trim_m)
 	if route.size() < 2:
 		return spans
 	for side in [-1.0, 1.0]:
-		for line in _offset_runs(route, SIDE_OFFSET_M * side):
+		for line in _offset_runs(route, side_offset_m * side):
 			for index in range(1, line.size()):
 				var a := line[index - 1]
 				var b := line[index]
 				if a.distance_to(b) < MIN_SPAN_M:
 					continue
-				_place_clear_spans(spans, a, b, obstacles)
+				_place_clear_spans(spans, a, b, obstacles, maxf(MIN_SPAN_M, max_span_m))
 	return spans
 
 static func _point(coordinate: Array) -> Vector2:
@@ -389,10 +396,11 @@ static func _offset_runs(route: PackedVector2Array, offset: float) -> Array[Pack
 	runs.append(line)
 	return runs
 
-static func _place_clear_spans(spans: Array[PackedVector2Array], a: Vector2, b: Vector2, obstacles: Dictionary) -> void:
+static func _place_clear_spans(spans: Array[PackedVector2Array], a: Vector2, b: Vector2,
+		obstacles: Dictionary, max_span_m: float) -> void:
 	# Clip in short intervals so road passages stay open without discarding whole panels.
 	if not _blocked(a, b, obstacles):
-		_add_panels(spans, a, b)
+		_add_panels(spans, a, b, max_span_m)
 		return
 	var steps := ceili(a.distance_to(b) / CLIP_SAMPLE_M)
 	var clear_start := a
@@ -400,15 +408,15 @@ static func _place_clear_spans(spans: Array[PackedVector2Array], a: Vector2, b: 
 		var start := a.lerp(b, float(index) / steps)
 		var end := a.lerp(b, float(index + 1) / steps)
 		if _blocked(start, end, obstacles):
-			_add_panels(spans, clear_start, start)
+			_add_panels(spans, clear_start, start, max_span_m)
 			clear_start = end
-	_add_panels(spans, clear_start, b)
+	_add_panels(spans, clear_start, b, max_span_m)
 
-static func _add_panels(spans: Array[PackedVector2Array], a: Vector2, b: Vector2) -> void:
+static func _add_panels(spans: Array[PackedVector2Array], a: Vector2, b: Vector2, max_span_m: float) -> void:
 	var length_m := a.distance_to(b)
 	if length_m < MIN_SPAN_M:
 		return
-	var count := ceili(length_m / SPAN_M)
+	var count := ceili(length_m / max_span_m)
 	for index in count:
 		spans.append(PackedVector2Array([a.lerp(b, float(index) / count),
 			a.lerp(b, float(index + 1) / count)]))

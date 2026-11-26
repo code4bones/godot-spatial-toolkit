@@ -2,6 +2,7 @@
 extends RefCounted
 
 const Style := preload("res://addons/spatial_toolkit/core/map_style_module.gd")
+const Layers := preload("res://addons/spatial_toolkit/core/spatial_layers.gd")
 const RULES := &"facade_base_colors"
 const ORIGINAL := &"original_facade_base_color"
 const UNSPECIFIED := "yes"
@@ -30,12 +31,8 @@ static func type_id(building: MeshInstance3D) -> String:
 
 static func groups(map: Node3D) -> Dictionary:
 	var result := {}
-	var buildings := map.get_node_or_null("Generated/Buildings") if map != null else null
-	if buildings == null:
-		return result
-	for child in buildings.get_children():
-		var building := child as MeshInstance3D
-		if building != null and _wall_material(building) != null:
+	for building in Layers.buildings(map):
+		if _wall_material(building) != null:
 			result.get_or_add(type_id(building), []).append(building)
 	return result
 

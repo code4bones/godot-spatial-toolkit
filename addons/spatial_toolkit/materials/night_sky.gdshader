@@ -1,6 +1,8 @@
 shader_type sky;
 
 uniform vec3 moon_direction = vec3(0.32, 0.31, 0.895);
+uniform vec3 sky_top = vec3(0.006, 0.012, 0.031);
+uniform vec3 sky_horizon = vec3(0.047, 0.065, 0.105);
 
 float star_hash(vec2 p) {
 	vec3 value = fract(vec3(p.xyx) * 0.1031);
@@ -10,8 +12,7 @@ float star_hash(vec2 p) {
 
 void sky() {
 	float altitude = max(EYEDIR.y, 0.0);
-	vec3 night = mix(vec3(0.047, 0.065, 0.105), vec3(0.006, 0.012, 0.031),
-		smoothstep(0.0, 0.65, altitude));
+	vec3 night = mix(sky_horizon, sky_top, smoothstep(0.0, 0.65, altitude));
 	vec2 grid = SKY_COORDS * vec2(768.0, 384.0);
 	vec2 cell = floor(grid);
 	float seed = star_hash(cell);

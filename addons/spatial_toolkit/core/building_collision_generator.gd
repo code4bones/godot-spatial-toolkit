@@ -7,6 +7,7 @@ extends RefCounted
 const GENERATOR := "spatial_toolkit.building_collision_trial.v1"
 const BODY_NAME := "BuildingCollision"
 const SHAPE_KIND := "concave_triangle_surface"
+const Layers := preload("res://addons/spatial_toolkit/core/spatial_layers.gd")
 
 static func new_report(enabled: bool = true) -> Dictionary:
 	return {"success": true, "enabled": enabled, "created": 0, "existing": 0,
@@ -66,11 +67,8 @@ static func apply_to_scene(scene_root: Node) -> Dictionary:
 	if buildings == null:
 		return {"success": false, "error": "Generated/Buildings layer not found"}
 	var report := new_report()
-	for child in buildings.get_children():
-		if not child is MeshInstance3D:
-			report["skipped"].append({"node": str(child.name), "reason": "Not a building mesh"})
-			continue
-		append_result(report, add_to_building(child as MeshInstance3D, scene_root))
+	for building in Layers.meshes(buildings):
+		append_result(report, add_to_building(building, scene_root))
 	return report
 
 static func _copy_provenance(instance: MeshInstance3D, target: Node, identity: String) -> void:

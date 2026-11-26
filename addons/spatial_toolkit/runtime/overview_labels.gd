@@ -1,6 +1,7 @@
 extends RefCounted
 ## Screen-space labels for the overview camera, sourced from rendered OSM features.
 
+const Layers := preload("res://addons/spatial_toolkit/core/spatial_layers.gd")
 const STREET_FONT_SIZE := 15
 const HOUSE_FONT_SIZE := 13
 const HOUSE_MAX_METRES_PER_PIXEL := 1.0
@@ -25,11 +26,7 @@ var _view_key: Array = []
 func collect(map: Node3D, ground: Node3D, world_scale: float) -> void:
 	var roads := {}
 	for layer_path in ["Generated/Roads", "Generated/Paths"]:
-		var layer := map.get_node_or_null(layer_path)
-		if layer == null:
-			continue
-		for node in layer.get_children():
-			var mesh := node as MeshInstance3D
+		for mesh in Layers.meshes(map.get_node_or_null(layer_path)):
 			var tags := _source_tags(mesh)
 			var street := _tag_text(tags, "name")
 			if street.is_empty():
@@ -38,11 +35,7 @@ func collect(map: Node3D, ground: Node3D, world_scale: float) -> void:
 				"text": street, "mesh": mesh, "priority": ROAD_PRIORITY.get(tags.get("highway"), 0),
 			}
 	_collect_streets(map, ground, world_scale, roads)
-	var buildings := map.get_node_or_null("Generated/Buildings")
-	if buildings == null:
-		return
-	for node in buildings.get_children():
-		var mesh := node as MeshInstance3D
+	for mesh in Layers.buildings(map):
 		var number := _tag_text(_source_tags(mesh), "addr:housenumber")
 		if number.is_empty():
 			continue
@@ -100,7 +93,7 @@ func _road_mesh_anchor(mesh: MeshInstance3D) -> Vector3:
 	return mesh.to_global(nearest)
 
 func _source_tags(mesh: MeshInstance3D) -> Dictionary:
-	if mesh == null or mesh.mesh == null or not mesh.visible:
+	if mesh == null or mesh.mesh == null or not mesh.is_visible_in_tree():
 		return {}
 	var tags: Variant = mesh.get_meta("source_tags", {})
 	return tags if tags is Dictionary else {}

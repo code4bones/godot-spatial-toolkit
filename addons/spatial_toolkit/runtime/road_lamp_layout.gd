@@ -1,6 +1,7 @@
 extends RefCounted
 ## Places ground fixtures beside rendered vehicle roads in projected source metres.
 
+const Layers := preload("res://addons/spatial_toolkit/core/spatial_layers.gd")
 const GRID_M := 40.0
 const PITCH_M := 27.0
 const SERVICE_PITCH_M := 54.0
@@ -19,7 +20,8 @@ const ROAD_PRIORITY := {
 	"residential": 3, "living_street": 3, "service": 4,
 }
 
-static func build(map: Node3D, features: Array, world_scale: float) -> Array[Dictionary]:
+static func build(map: Node3D, features: Array, world_scale: float, pitch_m := PITCH_M,
+		service_pitch_m := SERVICE_PITCH_M, minimum_gap_m := MIN_LAMP_DISTANCE_M) -> Array[Dictionary]:
 	var lamps: Array[Dictionary] = []
 	if map == null or world_scale <= 0.0:
 		return lamps
@@ -28,6 +30,9 @@ static func build(map: Node3D, features: Array, world_scale: float) -> Array[Dic
 		return lamps
 	var conduits := map.get_node_or_null("StyleLayer/PathConduits") as Node3D
 	var uses_conduits := conduits != null and conduits.visible
+	var conduit_margin := CONDUIT_MARGIN_M
+	if uses_conduits and conduits.has_method("clearance_for_lamps"):
+		conduit_margin = float(conduits.call("clearance_for_lamps", CONDUIT_MARGIN_M))
 	# The conduit overlay hides source paths after generating the pipes and fences.
 	var path_ids := _rendered_ids(map.get_node_or_null("Generated/Paths"), not uses_conduits)
 	var clearances := _load_clearances(map.scene_file_path.get_base_dir()) if uses_conduits else {}
@@ -64,22 +69,25 @@ static func build(map: Node3D, features: Array, world_scale: float) -> Array[Dic
 					route["rank"] = int(ROAD_PRIORITY[highway]) * 2 + int(street.is_empty())
 					routes.append(route)
 			elif path_ids.has(id):
-				var path_radius := CONDUIT_MARGIN_M if uses_conduits else half_width + ROAD_MARGIN_M
+				var path_radius := conduit_margin if uses_conduits else half_width + ROAD_MARGIN_M
 				for run: Array in path_cuts.get(id, [coordinates]):
 					_index_line(edges, _points(run), path_radius)
 	routes.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 		return a["id"] < b["id"] if a["rank"] == b["rank"] else a["rank"] < b["rank"])
 	var occupied := {}
 	for route: Dictionary in routes:
-		_place_route(lamps, route, road_cuts, edges, polygons, occupied)
+		var pitch := service_pitch_m if route["highway"] == "service" else pitch_m
+		_place_route(lamps, route, road_cuts, edges, polygons, occupied, pitch, minimum_gap_m)
 	return lamps
 
 static func _rendered_ids(container: Node, visible_only: bool) -> Dictionary:
 	var ids := {}
-	if container != null:
-		for node: Node in container.get_children():
-			if node is Node3D and node.has_meta("source_id") and (node.visible or not visible_only):
-				ids[str(node.get_meta("source_id"))] = true
+	for mesh in Layers.meshes(container):
+		# Conduits hide their source meshes. Their parent groups still control
+		# which paths can have an overlay to reserve space for.
+		var visible_node: Node3D = mesh if visible_only else mesh.get_parent() as Node3D
+		if mesh.has_meta("source_id") and visible_node.is_visible_in_tree():
+			ids[str(mesh.get_meta("source_id"))] = true
 	return ids
 
 static func _load_clearances(directory: String) -> Dictionary:
@@ -145,7 +153,8 @@ static func _index(cells: Dictionary, bounds: Rect2, item: Variant) -> void:
 			cells.get_or_add(Vector2i(x, z), []).append(item)
 
 static func _place_route(lamps: Array[Dictionary], route: Dictionary, cuts: Dictionary,
-		edges: Dictionary, polygons: Dictionary, occupied: Dictionary) -> void:
+		edges: Dictionary, polygons: Dictionary, occupied: Dictionary, pitch_m: float,
+		minimum_gap_m: float) -> void:
 	var line: PackedVector2Array = route["line"]
 	var length := 0.0
 	var ends := PackedFloat64Array()
@@ -156,7 +165,7 @@ static func _place_route(lamps: Array[Dictionary], route: Dictionary, cuts: Dict
 	if length < (MIN_SERVICE_LENGTH_M if is_service else MIN_ROAD_LENGTH_M):
 		return
 	var id: String = route["id"]
-	var pitch := SERVICE_PITCH_M if is_service else PITCH_M
+	var pitch := maxf(1.0, pitch_m)
 	var count := maxi(1, roundi(length / pitch))
 	var start := (length - (count - 1) * pitch) * 0.5
 	var shoulder: float = route["half_width"] + SHOULDER_M
@@ -173,11 +182,11 @@ static func _place_route(lamps: Array[Dictionary], route: Dictionary, cuts: Dict
 			var offset := direction.orthogonal() * side
 			var point := center + offset * shoulder
 			if _inside_polygon(point, polygons) or _too_near_edge(point, edges) \
-					or _in_median(center, direction, offset, route, edges) or _near_lamp(point, occupied):
+					or _in_median(center, direction, offset, route, edges) or _near_lamp(point, occupied, minimum_gap_m):
 				continue
 			lamps.append({"position": Vector3(point.x, 0.0, point.y),
 				"normal": Vector3(-offset.x, 0.0, -offset.y), "source_id": id})
-			var extent := Vector2.ONE * MIN_LAMP_DISTANCE_M
+			var extent := Vector2.ONE * minimum_gap_m
 			_index(occupied, Rect2(point - extent, extent * 2.0), point)
 			break
 
@@ -243,8 +252,8 @@ static func _too_near_edge(point: Vector2, edges: Dictionary) -> bool:
 			return true
 	return false
 
-static func _near_lamp(point: Vector2, occupied: Dictionary) -> bool:
+static func _near_lamp(point: Vector2, occupied: Dictionary, minimum_gap_m: float) -> bool:
 	for other: Vector2 in occupied.get(_cell(point), []):
-		if point.distance_squared_to(other) < MIN_LAMP_DISTANCE_M * MIN_LAMP_DISTANCE_M:
+		if point.distance_squared_to(other) < minimum_gap_m * minimum_gap_m:
 			return true
 	return false

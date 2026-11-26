@@ -4,6 +4,8 @@ extends Node3D
 const Frames := preload("res://addons/spatial_toolkit/runtime/facade_window_preview.gd")
 const Layout := preload("res://addons/spatial_toolkit/runtime/facade_window_layout.gd")
 const Atlas := preload("res://addons/spatial_toolkit/runtime/facade_window_atlas.gd")
+const Layers := preload("res://addons/spatial_toolkit/core/spatial_layers.gd")
+const BreakablePane := preload("res://addons/spatial_toolkit/runtime/breakable_window.gd")
 const NightStyle := preload("res://addons/spatial_toolkit/runtime/night_city_style.gd")
 const FACADE := "res://addons/spatial_toolkit/materials/building_facade.gdshader"
 const DETAIL_RADIUS_M := 52.0
@@ -42,9 +44,9 @@ func _ready() -> void:
 	set_process(false)
 	var map := get_parent().get_parent() as Node3D
 	_player = map.get_node_or_null("FlyPlayer") as Node3D
-	var buildings := map.get_node_or_null("Generated/Buildings")
+	var buildings := Layers.buildings(map)
 	var panes := map.get_node_or_null("BreakableWindows")
-	if buildings == null:
+	if buildings.is_empty():
 		return
 	var path := map.scene_file_path.get_base_dir().path_join("export_preview.spatial.json")
 	if not FileAccess.file_exists(path):
@@ -66,16 +68,18 @@ func _ready() -> void:
 		if feature.get("kind") == "building":
 			sources[feature["id"]] = feature
 	# Facade masks and legacy openings must be resolved before the first draw.
-	for child in buildings.get_children():
-		var building := child as MeshInstance3D
-		if building == null or building.mesh == null:
+	var sealed := {}
+	for building in buildings:
+		if building.mesh == null or not building.is_visible_in_tree():
+			continue
+		if Layers.effective(building).get("decorative_windows") == SpatialBuildingLayer3D.DecorativeWindows.HIDE:
 			continue
 		var id := str(building.get_meta("source_id", ""))
-		if sources.has(id):
-			_register_building(building, sources[id])
+		if sources.has(id) and _register_building(building, sources[id]):
+			sealed[id] = true
 	if is_instance_valid(panes):
-		panes.queue_free()
-	if _player == null:
+		_remove_sealed_panes(panes, sealed)
+	if _player == null or _entries.is_empty():
 		return
 	if _recessed_frames:
 		_add_pool(_lowrise_frame, MAX_RECESSED_DETAIL_FRAMES, false)
@@ -86,6 +90,15 @@ func _ready() -> void:
 		return
 	set_process(true)
 	_update_visible_windows()
+
+func _remove_sealed_panes(panes: Node, sealed: Dictionary) -> void:
+	var remaining := panes.get_child_count()
+	for pane in panes.get_children():
+		if pane is BreakablePane and sealed.has(str(pane.get_meta("source_id", ""))):
+			pane.shatter()
+			remaining -= 1
+	if remaining == 0:
+		panes.queue_free()
 
 func _add_legacy_pools(night: bool) -> bool:
 	if apartment_library == null or factory_library == null:
@@ -116,12 +129,12 @@ func _add_pool(mesh: Mesh, capacity: int, custom_data := true) -> void:
 	add_child(pool)
 	_pools.append(pool)
 
-func _register_building(building: MeshInstance3D, source: Dictionary) -> void:
+func _register_building(building: MeshInstance3D, source: Dictionary) -> bool:
 	var tags: Dictionary = source["source"].get("tags", {})
 	var kind := 1 if tags.get("building") in ["industrial", "warehouse", "factory", "service"] else 0
 	var material := _facade_material(building)
 	if material == null:
-		return
+		return false
 	var height: Variant = material.get_shader_parameter("floor_height")
 	var seed := int(material.get_shader_parameter("building_seed"))
 	var bounds := building.get_aabb()
@@ -129,7 +142,7 @@ func _register_building(building: MeshInstance3D, source: Dictionary) -> void:
 	var coordinates: Array = geometry["coordinates"]
 	if geometry["type"] == "Polygon":
 		coordinates = [coordinates]
-	var long_axis := _long_facade_axis(coordinates)
+	var long_axis := Layout.long_facade_axis(coordinates)
 	Frames.seal_openings(building, get_parent().get_parent() as Node3D, _scale)
 	var floor_height := maxf(2.0, float(height) if height != null else 3.0)
 	var wall_height := float(source.get("wall_height_m", source["height_m"]))
@@ -145,31 +158,7 @@ func _register_building(building: MeshInstance3D, source: Dictionary) -> void:
 		"bounds": Rect2(Vector2(bounds.position.x, bounds.position.z) / _scale,
 			Vector2(bounds.size.x, bounds.size.z) / _scale),
 	})
-
-func _long_facade_axis(polygons: Array) -> Vector2:
-	var axis := Vector2.RIGHT
-	var longest := 0.0
-	var points := PackedVector2Array()
-	for polygon: Array in polygons:
-		var ring: Array = polygon[0]
-		for index in range(ring.size() - 1):
-			var a := Vector2(float(ring[index][0]), float(ring[index][1]))
-			var b := Vector2(float(ring[index + 1][0]), float(ring[index + 1][1]))
-			points.append(a)
-			var edge := b - a
-			if edge.length_squared() > longest:
-				longest = edge.length_squared()
-				axis = edge.normalized()
-	if points.is_empty():
-		return Vector2.ZERO
-	var span := Rect2(Vector2(points[0].dot(axis), points[0].dot(axis.orthogonal())), Vector2.ZERO)
-	for point in points:
-		span = span.expand(Vector2(point.dot(axis), point.dot(axis.orthogonal())))
-	if span.size.y > span.size.x:
-		axis = axis.orthogonal()
-	if maxf(span.size.x, span.size.y) < 1.12 * minf(span.size.x, span.size.y):
-		return Vector2.ZERO
-	return axis
+	return int(building.get_meta("sealed_opening_count", 0)) > 0
 
 func _facade_material(building: MeshInstance3D) -> ShaderMaterial:
 	for index in building.mesh.get_surface_count():

@@ -11,6 +11,13 @@ from .preview_geometry import FOUNDATION_BOTTOM, FOUNDATION_RENDER_TOP, signed_a
 
 WINDOW_SPACING = 2.7
 WINDOW_WIDTH = 1.08
+APERTURE_DEFAULTS = {
+    "width_m": WINDOW_WIDTH,
+    "height_m": 0.0,
+    "sill_m": -1.0,
+    "spacing_m": WINDOW_SPACING,
+    "corner_clearance_m": 0.81,
+}
 WALL_THICKNESS = 0.2
 MAX_BUILDING_OPENINGS = 10000
 MAX_MAP_OPENINGS = 75000
@@ -19,6 +26,26 @@ MAX_SAMPLES = 8
 
 class FacadeBudgetError(RuntimeError):
     """Reject the operation instead of silently dropping an expensive building."""
+
+
+def normalize_aperture_options(options):
+    if options is None:
+        return APERTURE_DEFAULTS.copy()
+    if not isinstance(options, dict) or set(options) - APERTURE_DEFAULTS.keys():
+        raise ValueError("Aperture options must be an object with supported fields")
+    settings = {**APERTURE_DEFAULTS, **options}
+    limits = {"width_m": (0.1, 12.0), "height_m": (0.0, 6.0), "sill_m": (-1.0, 6.0),
+              "spacing_m": (0.12, 100.0), "corner_clearance_m": (0.01, 50.0)}
+    for key, (minimum, maximum) in limits.items():
+        value = settings[key]
+        if (isinstance(value, bool) or not isinstance(value, (int, float))
+                or not math.isfinite(value) or not minimum <= value <= maximum):
+            raise ValueError(f"Aperture {key} must be between {minimum:g} and {maximum:g} metres")
+    if settings["sill_m"] < 0.0 and settings["sill_m"] != -1.0:
+        raise ValueError("Aperture sill_m must be nonnegative or -1 for automatic centering")
+    if settings["spacing_m"] - settings["width_m"] < 0.02 - 1e-9:
+        raise ValueError("Aperture spacing must leave at least 0.02 m of wall between openings")
+    return settings
 
 
 def _cross(a, b):
@@ -51,7 +78,7 @@ def _quad(vertices, normals, points, normal):
         _raw_quad(vertices, normals, points, normal)
 
 
-def plan_facade(polygons, height, wall_height, floor_height, grid_stride=1):
+def plan_facade(polygons, height, wall_height, floor_height, grid_stride=1, *, aperture_options=None):
     """Plan/count a facade without allocating any window triangles.
 
     Selection retains at least one aperture on every originally eligible edge.
@@ -62,9 +89,16 @@ def plan_facade(polygons, height, wall_height, floor_height, grid_stride=1):
     base_y = min(0.08, height * 0.1)
     wall_top = min(height, max(0.0, wall_height))
     floor_height = min(6.0, max(2.0, float(floor_height)))
-    pane_height = floor_height * 0.43
+    options = normalize_aperture_options(aperture_options)
+    pane_height = options["height_m"] or floor_height * 0.43
+    width, spacing = options["width_m"], options["spacing_m"]
+    end_adjustment = width + 2.0 * options["corner_clearance_m"] - spacing
+    center_offset = floor_height * 0.5 if options["sill_m"] < 0 else options["sill_m"] + pane_height * 0.5
+    top = center_offset + pane_height * 0.5
     # The last row needs room for the whole aperture, not an entire extra storey.
-    full_rows = max(0, math.floor((wall_top - base_y - floor_height * 0.715) / floor_height) + 1)
+    full_rows = 0
+    if center_offset - pane_height * 0.5 >= 0.0 and top <= floor_height:
+        full_rows = max(0, math.floor((wall_top - base_y - top) / floor_height) + 1)
     rows = (full_rows + grid_stride - 1) // grid_stride
     plans, count, full_count = [], 0, 0
     for part, rings in enumerate(polygons):
@@ -75,7 +109,7 @@ def plan_facade(polygons, height, wall_height, floor_height, grid_stride=1):
                 length = math.hypot(dx, dz)
                 if length < 1e-8:
                     continue
-                full_columns = max(0, math.floor(length / WINDOW_SPACING))
+                full_columns = max(0, math.floor((length - end_adjustment) / spacing))
                 columns = (full_columns + grid_stride - 1) // grid_stride
                 count += rows * columns
                 full_count += full_rows * full_columns
@@ -83,6 +117,7 @@ def plan_facade(polygons, height, wall_height, floor_height, grid_stride=1):
                 normal = [sign * dz / length, 0.0, -sign * dx / length]
                 plans.append((part, ring_index, edge_index, a, length, tangent, normal, columns, full_columns))
     return {"base_y": base_y, "floor_height": floor_height, "pane_height": pane_height,
+            "pane_width": width, "column_spacing": spacing, "first_center": center_offset,
             "rows": rows, "full_rows": full_rows, "edges": plans, "count": count,
             "estimated_full_count": full_count, "grid_stride": grid_stride}
 
@@ -184,6 +219,8 @@ def plan_limited_facade(full_plan, window_limit=6):
                            key=circular_distance)
             allocation[index] = 1
     limited_rows = {}
+    spacing = full_plan["column_spacing"]
+    sill_shift = full_plan["first_center"] - full_plan["floor_height"] * 0.5
     for index, edge in eligible:
         amount = allocation[index]
         if not amount:
@@ -191,13 +228,13 @@ def plan_limited_facade(full_plan, window_limit=6):
         columns = edge[8]
         rows = (amount + columns - 1) // columns
         per_row, extra = divmod(amount, rows)
-        offset = (edge[4] - columns * WINDOW_SPACING) * 0.5
+        offset = (edge[4] - columns * spacing) * 0.5
         row_layouts = []
         for row in range(rows):
             row_columns = per_row + int(row < extra)
             center_y = (full_plan["base_y"] + (row + 0.5)
-                        * full_plan["full_rows"] / rows * full_plan["floor_height"])
-            centers_u = [offset + (column + 0.5) * columns / row_columns * WINDOW_SPACING
+                        * full_plan["full_rows"] / rows * full_plan["floor_height"] + sill_shift)
+            centers_u = [offset + (column + 0.5) * columns / row_columns * spacing
                          for column in range(row_columns)]
             row_layouts.append((center_y, centers_u))
         limited_rows[index] = row_layouts
@@ -223,6 +260,8 @@ def building_with_openings(geometry, polygons, height, wall_height, floor_height
             "75000 per map). Import a smaller area or use automatic window density; "
             "no buildings were silently omitted.")
     base_y, floor_height, pane_height = (plan[key] for key in ("base_y", "floor_height", "pane_height"))
+    width, spacing = (plan[key] for key in ("pane_width", "column_spacing"))
+    sill_shift = plan["first_center"] - floor_height * 0.5
     rows, full_rows, count = (plan[key] for key in ("rows", "full_rows", "count"))
     grid_stride = plan["grid_stride"]
     roofs = roof_triangles if roof_triangles is not None else [
@@ -268,17 +307,17 @@ def building_with_openings(geometry, polygons, height, wall_height, floor_height
         if (limited and not limited_rows) or (not limited and (columns == 0 or rows == 0)):
             rectangle(0.0, length, base_y, height)
             continue
-        offset = (length - full_columns * WINDOW_SPACING) * 0.5
+        offset = (length - full_columns * spacing) * 0.5
         previous_top = base_y
         edge_rows = len(limited_rows) if limited else rows
         for row in range(edge_rows):
             if limited:
                 center_y, centers_u = limited_rows[row]
             elif grid_stride == 1:
-                center_y = base_y + (row + 0.5) * floor_height
+                center_y = base_y + (row + 0.5) * floor_height + sill_shift
             else:
                 selected_row = (full_rows - 1) * 0.5 if rows == 1 else (full_rows - 1) * row / (rows - 1)
-                center_y = base_y + (selected_row + 0.5) * floor_height
+                center_y = base_y + (selected_row + 0.5) * floor_height + sill_shift
             y0, y1 = center_y - pane_height * 0.5, center_y + pane_height * 0.5
             rectangle(0.0, length, previous_top, y0)
             previous_right = 0.0
@@ -287,12 +326,12 @@ def building_with_openings(geometry, polygons, height, wall_height, floor_height
                 if limited:
                     center_u = centers_u[column]
                 elif grid_stride == 1:
-                    center_u = offset + (column + 0.5) * WINDOW_SPACING
+                    center_u = offset + (column + 0.5) * spacing
                 else:
                     selected_column = ((full_columns - 1) * 0.5 if columns == 1 else
                                        (full_columns - 1) * column / (columns - 1))
-                    center_u = offset + (selected_column + 0.5) * WINDOW_SPACING
-                u0, u1 = center_u - WINDOW_WIDTH * 0.5, center_u + WINDOW_WIDTH * 0.5
+                    center_u = offset + (selected_column + 0.5) * spacing
+                u0, u1 = center_u - width * 0.5, center_u + width * 0.5
                 rectangle(previous_right, u0, y0, y1)
                 # Jambs, sill and lintel bridge exterior to interior faces. There
                 # is deliberately no face across the aperture or glass collider.
@@ -306,7 +345,7 @@ def building_with_openings(geometry, polygons, height, wall_height, floor_height
                 # entry points instead of spending the manifest on one facade.
                 if len(samples) < MAX_SAMPLES and (limited or (row == rows // 2 and column == columns // 2)):
                     samples.append({"center": point(center_u, center_y), "normal": normal,
-                                    "tangent": tangent, "width_m": WINDOW_WIDTH,
+                                    "tangent": tangent, "width_m": width,
                                     "height_m": pane_height, "part": part,
                                     "ring": ring_index, "edge": edge_index})
                 previous_right = u1

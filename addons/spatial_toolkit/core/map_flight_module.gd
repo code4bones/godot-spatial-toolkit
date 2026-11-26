@@ -3,13 +3,14 @@ extends RefCounted
 ## Optional saved flight overlay; source map meshes remain authoritative.
 
 const GENERATOR := "spatial_toolkit.map_flight.v1"
+const Layers := preload("res://addons/spatial_toolkit/core/spatial_layers.gd")
+const Localization := preload("res://addons/spatial_toolkit/ui/editor_localization.gd")
+const Drone := preload("res://addons/spatial_toolkit/runtime/spatial_drone.gd")
+const DroneCamera := preload("res://addons/spatial_toolkit/runtime/drone_camera.gd")
 const PLAYER_NAME := "FlyPlayer"
 const AUDIO_DEFAULTS_SETTING := "spatial_toolkit/flight/audio_defaults"
-const DEFAULT_CONTROLLER := "signed_wheel_drone"
-const CONTROLLERS := {
-	"signed_wheel_drone": preload("res://addons/spatial_toolkit/runtime/drone_camera.gd"),
-	"viewport_bank": preload("res://addons/spatial_toolkit/runtime/viewport_bank_camera.gd"),
-}
+const DEFAULT_CONTROLLER := Drone.DEFAULT_CONTROLLER
+const CONTROLLERS := Drone.CONTROLLERS
 const CONTROLLER_LABELS := {
 	"signed_wheel_drone": "Классический",
 	"viewport_bank": "Крен и слежение у края · эксперимент",
@@ -20,28 +21,51 @@ const DEFAULT_BODY_HEIGHT := 34.3
 const CAPSULE_RADIUS := 0.35
 const CAPSULE_HEIGHT := 1.8
 
-static func apply_to_scene(map: Node3D, controller := DEFAULT_CONTROLLER) -> Dictionary:
+static func apply_to_scene(map: Node3D, controller := DEFAULT_CONTROLLER,
+		model_scene: PackedScene = null) -> Dictionary:
 	if not CONTROLLERS.has(controller):
-		return {"success": false, "error": "Unknown drone controller: " + controller}
+		return {"success": false, "error": Localization.translate("Unknown drone controller: %s") % controller}
 	if not map.is_inside_tree():
-		return {"success": false, "error": "Attach map root to SceneTree before adding flight"}
+		return {"success": false, "error": Localization.translate("Attach the map root to the scene tree before adding flight.")}
 	var overview := map.get_node_or_null("OverviewCamera") as Camera3D
 	var generated := map.get_node_or_null("Generated") as Node3D
 	if overview == null or generated == null:
-		return {"success": false, "error": "Flight requires Generated geometry and OverviewCamera"}
+		return {"success": false, "error": Localization.translate("Flight requires Generated geometry and OverviewCamera.")}
 	var previous := map.get_node_or_null(PLAYER_NAME)
 	if previous != null:
 		if previous is CharacterBody3D and previous.get_meta("generated_by", "") == GENERATOR:
 			if previous.get_node_or_null("CameraPivot/CameraBoom/FlyCamera") is Camera3D:
 				return _report(previous as CharacterBody3D, 0, 1)
-			return {"success": false, "error": "Existing flight overlay has no camera; preserved for review"}
-		return {"success": false, "error": "FlyPlayer name is occupied; existing user node preserved"}
+			return {"success": false, "error": Localization.translate("The existing flight overlay has no camera. The overlay was preserved.")}
+		return {"success": false, "error": Localization.translate("An authored node already uses the name FlyPlayer. The node was preserved.")}
+
+	var craft := CRAFT.instantiate() as Node3D
+	var model: Node3D
+	var mount: Marker3D
+	if model_scene != null:
+		var instance := model_scene.instantiate() if model_scene.get_state().get_node_count() > 0 else null
+		model = instance as Node3D
+		if model == null or model is CollisionObject3D \
+				or not model.find_children("*", "CollisionObject3D", true, false).is_empty():
+			if instance != null:
+				instance.free()
+			craft.free()
+			return {"success": false, "error": Localization.translate("The drone model must be a Node3D scene without physics bodies or areas.")}
+		mount = craft.get_node("RocketMount") as Marker3D
+		craft.remove_child(mount)
+		craft.free()
+		craft = Node3D.new()
+		craft.add_child(mount)
+		model.name = "Model"
+		craft.add_child(model)
 
 	var district := _district_bounds(map, generated)
 	var center := Vector3(district.get_center().x, 0, district.get_center().z)
 	var start := _spawn_position(map, generated, center)
-	var player := CharacterBody3D.new()
+	var player := Drone.new()
 	player.name = PLAYER_NAME
+	player.flight_controller = Drone.CONTROLLER_IDS.find(controller)
+	player.invert_ws = bool(ProjectSettings.get_setting(DroneCamera.INVERT_WS_SETTING, false))
 	player.position = start
 	player.motion_mode = CharacterBody3D.MOTION_MODE_FLOATING
 	player.collision_layer = 2
@@ -83,7 +107,6 @@ static func apply_to_scene(map: Node3D, controller := DEFAULT_CONTROLLER) -> Dic
 	camera.far = maxf(20000.0, district.size.length() * 2.0 + start.y)
 	camera.current = true
 	boom.add_child(camera)
-	var craft := CRAFT.instantiate() as Node3D
 	craft.name = "FlightCraft"
 	craft.position.y = EYE_HEIGHT
 	craft.rotation = Vector3(pivot.rotation.x, pivot.rotation.y, 0)
@@ -96,9 +119,15 @@ static func apply_to_scene(map: Node3D, controller := DEFAULT_CONTROLLER) -> Dic
 	map.add_child(player)
 	for node: Node in [player, collision, pivot, boom, camera, craft]:
 		node.owner = map
+	if model != null:
+		model.owner = map
+		mount.owner = map
+		if model.scene_file_path.is_empty():
+			for child: Node in model.find_children("*", "", true, false):
+				if child.owner == model:
+					child.owner = map
 	camera.set_script(CONTROLLERS[controller])
 	_apply_audio_defaults(camera)
-	player.set_meta("flight_controller", controller)
 	camera.set("overview_camera_path", NodePath("../../../../OverviewCamera"))
 	camera.set("map_legend_path", NodePath("../../../../PreviewLegend/Legend"))
 	camera.set("third_person", true)
@@ -129,10 +158,13 @@ static func _apply_audio_defaults(camera: Camera3D) -> void:
 			camera.set(volume_key, clampf(float(volume), -80.0, 6.0))
 
 static func _report(player: CharacterBody3D, created: int, existing: int) -> Dictionary:
+	var controller: String = player.get_meta("flight_controller", DEFAULT_CONTROLLER)
+	if player is Drone:
+		controller = Drone.CONTROLLER_IDS[player.flight_controller]
 	return {"success": true, "created": created, "existing": existing,
 		"start_position_m": [player.position.x, player.position.y, player.position.z],
 		"units": "meters", "collision_layer": 2, "collision_mask": 1,
-		"controller": player.get_meta("flight_controller", DEFAULT_CONTROLLER), "default_view": "third_person"}
+		"controller": controller, "default_view": "third_person"}
 
 static func _local_bounds(map: Node3D, mesh: MeshInstance3D) -> AABB:
 	var local_from_mesh := map.global_transform.affine_inverse() * mesh.global_transform
@@ -154,24 +186,19 @@ static func _spawn_position(map: Node3D, generated: Node3D, center: Vector3) -> 
 	var start := Vector3(center.x, DEFAULT_BODY_HEIGHT, center.z)
 	var roads := generated.get_node_or_null("Roads")
 	var nearest := INF
-	if roads != null:
-		for node in roads.get_children():
-			var mesh := node as MeshInstance3D
-			if mesh == null or mesh.mesh == null:
-				continue
-			var road_center := _local_bounds(map, mesh).get_center()
-			var distance := Vector2(road_center.x - center.x, road_center.z - center.z).length_squared()
-			if distance < nearest:
-				nearest = distance
-				start.x = road_center.x
-				start.z = road_center.z
-	var buildings := generated.get_node_or_null("Buildings")
-	if buildings != null:
-		for node in buildings.get_children():
-			var mesh := node as MeshInstance3D
-			if mesh == null or mesh.mesh == null:
-				continue
-			var bounds := _local_bounds(map, mesh)
-			if start.x >= bounds.position.x - CAPSULE_RADIUS and start.x <= bounds.end.x + CAPSULE_RADIUS and start.z >= bounds.position.z - CAPSULE_RADIUS and start.z <= bounds.end.z + CAPSULE_RADIUS:
-				start.y = maxf(start.y, bounds.end.y + CAPSULE_HEIGHT * 0.5 + 5.0)
+	for mesh in Layers.meshes(roads):
+		if mesh.mesh == null:
+			continue
+		var road_center := _local_bounds(map, mesh).get_center()
+		var distance := Vector2(road_center.x - center.x, road_center.z - center.z).length_squared()
+		if distance < nearest:
+			nearest = distance
+			start.x = road_center.x
+			start.z = road_center.z
+	for mesh in Layers.buildings(map):
+		if mesh.mesh == null:
+			continue
+		var bounds := _local_bounds(map, mesh)
+		if start.x >= bounds.position.x - CAPSULE_RADIUS and start.x <= bounds.end.x + CAPSULE_RADIUS and start.z >= bounds.position.z - CAPSULE_RADIUS and start.z <= bounds.end.z + CAPSULE_RADIUS:
+			start.y = maxf(start.y, bounds.end.y + CAPSULE_HEIGHT * 0.5 + 5.0)
 	return start

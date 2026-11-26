@@ -2,7 +2,9 @@
 extends RefCounted
 ## Deterministic, reversible decoration of native static maps. No source mutation.
 signal progress(message: String, fraction: float)
+const Localization := preload("res://addons/spatial_toolkit/ui/editor_localization.gd")
 const GEOMETRY := preload("res://addons/spatial_toolkit/core/world_style_geometry.gd")
+const Layers := preload("res://addons/spatial_toolkit/core/spatial_layers.gd")
 const GENERATOR := "spatial_toolkit.world_style.v1"
 const GENERATOR_VERSION := "0.7.0"
 const FINGERPRINT_SCHEMA := 3
@@ -26,88 +28,88 @@ var _unit_box: BoxMesh
 func validate_spec(spec: Dictionary) -> Array[String]:
 	var errors: Array[String] = []
 	if not _integer(spec.get("schema_version")) or int(spec.get("schema_version", 0)) != 1:
-		errors.append("schema_version должен быть 1.")
+		errors.append(Localization.translate("schema_version must be 1."))
 	if not spec.get("id") is String or str(spec.get("id", "")).strip_edges().is_empty():
-		errors.append("id должен быть непустой строкой.")
+		errors.append(Localization.translate("id must be a non-empty string."))
 	if not _integer(spec.get("seed")):
-		errors.append("seed должен быть конечным целым числом.")
+		errors.append(Localization.translate("seed must be a finite integer."))
 	for name: String in ["target", "facades", "rooftops", "signage", "performance"]:
 		if not spec.get(name) is Dictionary:
-			errors.append(name + " должен быть объектом.")
+			errors.append(Localization.translate("%s must be an object.") % name)
 	if not errors.is_empty():
 		return errors
 	var facades: Dictionary = spec["facades"]
 	if facades.has("technology"):
 		if not facades["technology"] is Dictionary:
-			errors.append("facades.technology должен быть объектом.")
+			errors.append(Localization.translate("facades.technology must be an object."))
 		else:
 			var technology: Dictionary = facades["technology"]
 			if not technology.get("enabled") is bool:
-				errors.append("facades.technology.enabled должен быть bool.")
+				errors.append(Localization.translate("facades.technology.enabled must be a boolean."))
 			if technology.get("enabled", false):
 				var archetypes: Variant = technology.get("archetypes")
 				if not archetypes is Array or archetypes.is_empty():
-					errors.append("technology.archetypes должен содержать известные варианты.")
+					errors.append(Localization.translate("technology.archetypes must contain known variants."))
 				else:
 					for name: Variant in archetypes:
 						if not name is String or not name in TECH_ARCHETYPES:
-							errors.append("Неизвестный технологический вариант: " + str(name))
+							errors.append(Localization.translate("Unknown technology variant: %s") % str(name))
 				for key: String in ["panel_scale_m", "emission_strength"]:
 					var value: Variant = technology.get(key)
 					if not _number(value) or float(value) < 0.0 or (key == "panel_scale_m" and float(value) == 0.0):
-						errors.append("technology." + key + " имеет неверный диапазон.")
+						errors.append(Localization.translate("technology.%s is out of range.") % key)
 	if spec["target"].get("preserve_source_geometry") != true:
-		errors.append("target.preserve_source_geometry должен быть true.")
+		errors.append(Localization.translate("target.preserve_source_geometry must be true."))
 	for key: String in ["neon", "windows"]:
 		if not facades.get(key) is Dictionary:
-			errors.append("facades." + key + " должен быть объектом.")
+			errors.append(Localization.translate("facades.%s must be an object.") % key)
 	if not errors.is_empty():
 		return errors
 	for pair: Array in [[facades["neon"], "probability"], [facades["windows"], "lit_probability"], [spec["rooftops"], "prop_probability"], [spec["signage"], "large_sign_probability"]]:
 		var value: Variant = pair[0].get(pair[1])
 		if not _number(value) or float(value) < 0.0 or float(value) > 1.0:
-			errors.append(str(pair[1]) + " должен быть от 0 до 1.")
+			errors.append(Localization.translate("%s must be between 0 and 1.") % str(pair[1]))
 	for pair: Array in [[facades["neon"], "enabled"], [facades["windows"], "enabled"], [spec["rooftops"], "vents"], [spec["rooftops"], "antennas"], [spec["signage"], "enabled"], [spec["signage"], "allow_generated_images"], [spec["performance"], "prefer_multimesh"]]:
 		if not pair[0].get(pair[1]) is bool:
-			errors.append(str(pair[1]) + " должен быть bool.")
+			errors.append(Localization.translate("%s must be a boolean.") % str(pair[1]))
 	var palette: Variant = facades.get("palette")
 	if not palette is Array or palette.is_empty():
-		errors.append("facades.palette должен содержать известные имена материалов.")
+		errors.append(Localization.translate("facades.palette must contain known material names."))
 	else:
 		for color: Variant in palette:
 			if not color is String or not PALETTE.has(color):
-				errors.append("Неизвестный материал палитры: " + str(color))
+				errors.append(Localization.translate("Unknown palette material: %s") % str(color))
 	var colors: Variant = facades["neon"].get("colors")
 	if not colors is Array or colors.is_empty():
-		errors.append("facades.neon.colors должен содержать #RRGGBB.")
+		errors.append(Localization.translate("facades.neon.colors must contain #RRGGBB values."))
 	else:
 		for color: Variant in colors:
 			if not color is String or str(color).length() != 7 or not str(color).begins_with("#") or not str(color).substr(1).is_valid_hex_number():
-				errors.append("Цвет должен иметь формат #RRGGBB: " + str(color))
+				errors.append(Localization.translate("Colours must use the #RRGGBB format: %s") % str(color))
 	var performance: Dictionary = spec["performance"]
 	for key: String in ["max_dynamic_lights_per_chunk", "max_buildings", "max_decor_instances", "max_skin_triangles"]:
 		var value: Variant = performance.get(key, 0 if key == "max_dynamic_lights_per_chunk" else 100000)
 		if not _integer(value) or float(value) < (0 if key == "max_dynamic_lights_per_chunk" else 1):
-			errors.append("performance." + key + " имеет неверный бюджет.")
+			errors.append(Localization.translate("performance.%s has an invalid budget.") % key)
 	for key: String in ["chunk_size_m", "visibility_range_m"]:
 		if performance.has(key) and (not _number(performance[key]) or float(performance[key]) < 0.0 or (key == "chunk_size_m" and float(performance[key]) == 0.0)):
-			errors.append("performance." + key + " имеет неверный диапазон.")
+			errors.append(Localization.translate("performance.%s is out of range.") % key)
 	if spec["signage"].get("allow_generated_images", false):
-		errors.append("v1 использует только процедурные вывески; generated images не поддерживаются.")
+		errors.append(Localization.translate("Version 1 supports only procedural signs."))
 	if performance.get("prefer_multimesh") != true:
-		errors.append("v1 требует performance.prefer_multimesh=true.")
+		errors.append(Localization.translate("Version 1 requires performance.prefer_multimesh=true."))
 	if spec.has("environment"):
 		if not spec["environment"] is Dictionary:
-			errors.append("environment должен быть объектом.")
+			errors.append(Localization.translate("environment must be an object."))
 		else:
 			var environment: Dictionary = spec["environment"]
 			if str(environment.get("preset", "source")) != "source" or environment.get("fog", false) != false or environment.get("wet_asphalt", false) != false:
-				errors.append("v1 сохраняет source environment; night/fog/wet_asphalt отложены.")
+				errors.append(Localization.translate("Version 1 preserves the source environment. Night, fog, and wet asphalt are unavailable."))
 	return errors
 
 func apply(map: Node3D, spec: Dictionary, host: Node, cancelled: Callable = Callable()) -> Dictionary:
 	if _busy:
-		return _failure("Уже выполняется стилизация.")
+		return _failure(Localization.translate("A style operation is already running."))
 	var errors := validate_spec(spec)
 	if not errors.is_empty():
 		return _failure(" ".join(errors))
@@ -115,41 +117,41 @@ func apply(map: Node3D, spec: Dictionary, host: Node, cancelled: Callable = Call
 	if not existing.get("ok", false):
 		return existing
 	if map.has_meta("scene_bake"):
-		return _failure("Выберите исходную незапечённую карту для стилизации.")
+		return _failure(Localization.translate("Select an original unbaked map for styling."))
 	var buildings := map.get_node_or_null("Generated/Buildings")
 	var generated := map.get_node_or_null("Generated")
 	if buildings == null or generated == null or not generated.has_meta("source"):
-		return _failure("Нужна исходная Generated/Buildings карта Spatial Toolkit.")
+		return _failure(Localization.translate("An original Spatial Toolkit map with Generated/Buildings is required."))
 	var source_meshes: Array[MeshInstance3D] = []
 	var identities := {}
-	for child: Node in buildings.get_children():
-		if not child is MeshInstance3D or not child.has_meta("source_id"):
+	for child in Layers.meshes(buildings):
+		if not child.has_meta("source_id"):
 			continue
 		var identity := str(child.get_meta("source_id"))
 		if identities.has(identity):
-			return _failure("Повторный source_id: " + identity)
+			return _failure(Localization.translate("Duplicate source_id: %s") % identity)
 		identities[identity] = true
 		if child.mesh == null or child.get_script() != null or child.mesh.get_blend_shape_count() > 0 or not child.skeleton.is_empty():
-			return _failure("Нужен статический меш: " + identity)
+			return _failure(Localization.translate("A static mesh is required: %s") % identity)
 		if GEOMETRY.relative(child, map).basis.determinant() <= 0.000001:
-			return _failure("Mirrored/вырожденный transform не поддерживается: " + identity)
+			return _failure(Localization.translate("Mirrored or degenerate transform: %s") % identity)
 		var ancestor: Node = child
 		while ancestor != map:
 			if ancestor is Node3D and ancestor.top_level:
-				return _failure("top_level исходного узла не поддерживается: " + identity)
+				return _failure(Localization.translate("The source node's top_level setting is unsupported: %s") % identity)
 			ancestor = ancestor.get_parent()
 		for surface: int in child.mesh.get_surface_count():
 			if child.mesh.surface_get_primitive_type(surface) != Mesh.PRIMITIVE_TRIANGLES:
-				return _failure("Нужны треугольники: " + identity)
+				return _failure(Localization.translate("Triangles are required: %s") % identity)
 		source_meshes.append(child)
 	if source_meshes.is_empty():
-		return _failure("Нет исходных зданий для стилизации.")
+		return _failure(Localization.translate("There are no source buildings to style."))
 	source_meshes.sort_custom(func(a: MeshInstance3D, b: MeshInstance3D): return str(a.get_meta("source_id")) < str(b.get_meta("source_id")))
 	if source_meshes.size() > int(spec["performance"].get("max_buildings", 10000)):
-		return _failure("Превышен бюджет зданий; StyleLayer не изменён.")
+		return _failure(Localization.translate("The building budget was exceeded. StyleLayer was preserved."))
 	_scale = float(map.get_meta("world_scale", generated.get_meta("world_scale", 1.0)))
 	if not is_finite(_scale) or _scale <= 0:
-		return _failure("world_scale должен быть положительным.")
+		return _failure(Localization.translate("world_scale must be positive."))
 	_busy = true
 	_host = host
 	_cancelled = cancelled
@@ -180,16 +182,17 @@ func apply(map: Node3D, spec: Dictionary, host: Node, cancelled: Callable = Call
 	for index: int in source_meshes.size():
 		if _is_cancelled():
 			_busy = false
-			return {"ok": false, "cancelled": true, "error": "Стилизация отменена; StyleLayer не изменён."}
+			return {"ok": false, "cancelled": true, "error": Localization.translate("Styling was cancelled. StyleLayer was preserved.")}
 		await _build_feature(source_meshes[index], map)
 		if _is_cancelled():
 			_busy = false
-			return {"ok": false, "cancelled": true, "error": "Стилизация отменена; StyleLayer не изменён."}
+			return {"ok": false, "cancelled": true, "error": Localization.translate("Styling was cancelled. StyleLayer was preserved.")}
 		if not _error.is_empty():
 			_busy = false
 			return _failure(_error)
 		if (index + 1) % 8 == 0:
-			progress.emit("Стилизация зданий %d/%d…" % [index + 1, source_meshes.size()], 0.05 + 0.70 * float(index + 1) / source_meshes.size())
+			progress.emit(Localization.translate("Styling buildings %d/%d…") % [index + 1, source_meshes.size()],
+				0.05 + 0.70 * float(index + 1) / source_meshes.size())
 			await host.get_tree().process_frame
 	var branch := Node3D.new()
 	branch.name = "GeneratedStyle"
@@ -204,13 +207,13 @@ func apply(map: Node3D, spec: Dictionary, host: Node, cancelled: Callable = Call
 		if _is_cancelled():
 			branch.free()
 			_busy = false
-			return {"ok": false, "cancelled": true, "error": "Стилизация отменена; StyleLayer не изменён."}
+			return {"ok": false, "cancelled": true, "error": Localization.translate("Styling was cancelled. StyleLayer was preserved.")}
 		_build_chunk(branch, chunk_id)
 		await host.get_tree().process_frame
 	if _is_cancelled():
 		branch.free()
 		_busy = false
-		return {"ok": false, "cancelled": true, "error": "Стилизация отменена; StyleLayer не изменён."}
+		return {"ok": false, "cancelled": true, "error": Localization.translate("Styling was cancelled. StyleLayer was preserved.")}
 	_report["chunks"] = chunk_keys.size()
 	_report["materials"] = _materials.size()
 	_manifest["counts"] = _report.duplicate(true)
@@ -242,12 +245,12 @@ func apply(map: Node3D, spec: Dictionary, host: Node, cancelled: Callable = Call
 	layer.add_child(branch)
 	_set_owner(branch, map)
 	_busy = false
-	progress.emit("StyleLayer готов.", 1.0)
+	progress.emit(Localization.translate("StyleLayer is ready."), 1.0)
 	return {"ok": true, "report": _report, "manifest": _manifest}
 
 func remove(map: Node3D) -> Dictionary:
 	if _busy:
-		return _failure("Уже выполняется стилизация.")
+		return _failure(Localization.translate("A style operation is already running."))
 	var existing := _existing(map)
 	if not existing.get("ok", false):
 		return existing
@@ -267,17 +270,17 @@ func _existing(map: Node3D) -> Dictionary:
 	if layer == null:
 		return {"ok": true}
 	if not layer is Node3D:
-		return _failure("Имя StyleLayer занято пользовательским узлом другого типа.")
+		return _failure(Localization.translate("An authored node of another type already uses the name StyleLayer."))
 	if layer.transform != Transform3D.IDENTITY or layer.top_level or layer.get_script() != null:
-		return _failure("StyleLayer должен иметь единичный transform без скрипта; пользовательский слой сохранён.")
+		return _failure(Localization.translate("StyleLayer must have an identity transform and no script. The authored layer was preserved."))
 	var branch := layer.get_node_or_null("GeneratedStyle")
 	if branch != null:
 		if str(branch.get_meta("generated_by", "")) != GENERATOR:
-			return _failure("StyleLayer/GeneratedStyle занят пользовательским узлом.")
+			return _failure(Localization.translate("An authored node already exists at StyleLayer/GeneratedStyle."))
 		if str(branch.get_meta("content_fingerprint", "")) != GEOMETRY.fingerprint(branch):
 			if int(branch.get_meta("fingerprint_schema", 0)) < FINGERPRINT_SCHEMA:
-				return _failure("Слой предыдущей версии не прошёл проверку целостности. Сохраните его и создайте оформление из исходной карты.")
-			return _failure("Сгенерированный StyleLayer изменён пользователем; сохраните эти изменения отдельно перед заменой.")
+				return _failure(Localization.translate("The older style layer failed its integrity check. Save it and generate styling from the source map."))
+			return _failure(Localization.translate("The generated StyleLayer was edited. Save those edits separately before replacing the layer."))
 	return {"ok": true}
 
 func _build_feature(mesh: MeshInstance3D, map: Node3D) -> void:
@@ -333,7 +336,7 @@ func _build_feature(mesh: MeshInstance3D, map: Node3D) -> void:
 		var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
 		var count := vertices.size() if indices.is_empty() else indices.size()
 		if count % 3 != 0 or normals.size() != vertices.size():
-			_error = "Нужны треугольники с нормалями: " + identity
+			_error = Localization.translate("Triangles with normals are required: %s") % identity
 			return
 		for offset: int in range(0, count, 3):
 			if offset > 0 and offset % 6144 == 0:
@@ -379,7 +382,7 @@ func _build_feature(mesh: MeshInstance3D, map: Node3D) -> void:
 				if roof_candidates.size() < 32:
 					roof_candidates.append({"triangle": triangle, "normal": normal})
 	if int(_report["skin_triangles"]) > int(_spec["performance"].get("max_skin_triangles", 500000)):
-		_error = "Превышен бюджет треугольников облицовки; StyleLayer не изменён."
+		_error = Localization.translate("The cladding triangle budget was exceeded. StyleLayer was preserved.")
 		return
 	if neon:
 		var edge_keys: Array = roof_edges.keys()
@@ -430,7 +433,7 @@ func _build_feature(mesh: MeshInstance3D, map: Node3D) -> void:
 
 func _add_skin(chunk: Dictionary, material_key: String, triangle: PackedVector3Array, normals: PackedVector3Array, technology: Dictionary = {}) -> void:
 	if int(_report["skin_triangles"]) >= int(_spec["performance"].get("max_skin_triangles", 500000)):
-		_error = "Превышен бюджет треугольников облицовки; StyleLayer не изменён."
+		_error = Localization.translate("The cladding triangle budget was exceeded. StyleLayer was preserved.")
 		return
 	var skins: Dictionary = chunk["skins"]
 	if not skins.has(material_key):
@@ -547,7 +550,7 @@ func _find_wall_region(groups: Dictionary, normal: Vector3, source_center: Vecto
 
 func _add_box(chunk: Dictionary, material_key: String, transform: Transform3D, source_id: String, kind: String, record: Dictionary) -> void:
 	if int(_report["decor_instances"]) >= int(_spec["performance"].get("max_decor_instances", 100000)):
-		_error = "Превышен бюджет декоративных экземпляров; StyleLayer не изменён."
+		_error = Localization.translate("The decor instance budget was exceeded. StyleLayer was preserved.")
 		return
 	if not chunk["boxes"].has(material_key):
 		chunk["boxes"][material_key] = []

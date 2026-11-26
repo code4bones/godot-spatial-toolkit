@@ -7,6 +7,7 @@ render_mode cull_disabled, diffuse_burley, specular_schlick_ggx;
 // Geometry, source tags and courtyard openings remain authoritative.
 uniform vec4 wall_color : source_color = vec4(0.62, 0.59, 0.52, 1.0);
 uniform vec4 roof_color : source_color = vec4(0.23, 0.25, 0.26, 1.0);
+uniform vec4 roof_tint : source_color = vec4(1.0);
 uniform sampler2D roof_albedo : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2D roof_normal : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2D roof_roughness : hint_default_white, filter_linear_mipmap_anisotropic, repeat_enable;
@@ -21,6 +22,7 @@ uniform vec2 roof_weathering_finish_average = vec2(0.91, 1.0);
 uniform vec4 glass_color : source_color = vec4(0.19, 0.27, 0.32, 1.0);
 uniform bool match_window_palette = false;
 uniform vec4 window_frame_color : source_color = vec4(0.19, 0.23, 0.25, 1.0);
+uniform int window_grille_style = -1;
 uniform float window_glass_roughness = 0.29;
 uniform float floor_height : hint_range(2.0, 6.0) = 3.0;
 uniform float building_seed = 0.0;
@@ -47,10 +49,15 @@ uniform int section_first_level = 1;
 uniform int section_wall_count = 0;
 uniform int section_light_offset = -1;
 uniform vec2 section_window_vertical = vec2(1.525, 0.625);
+uniform float section_window_half_width_m = 0.71;
 uniform float section_window_depth_m : hint_range(0.0, 0.35) = 0.0;
 uniform sampler2D section_window_atlas : filter_nearest, repeat_disable;
+uniform int baked_window_base = -1;
+uniform bool baked_window_detail_enabled = false;
+uniform sampler2D baked_window_visibility : filter_nearest, repeat_disable;
 uniform float night_uplight = 0.0;
 uniform bool lit_windows = false;
+uniform bool hide_decorative_windows = false;
 uniform float night_fog_density = 0.0;
 // Offline bake stores linear wall RGB/style in float CUSTOM0 and seed/floor in UV.
 uniform bool baked_facade_data = false;
@@ -139,22 +146,35 @@ float industrial_grille(vec2 point, vec2 half_size, vec2 footprint) {
 	return max(bars.x, bars.y);
 }
 
+float window_grille(int style, vec2 point, vec2 half_size, vec2 footprint) {
+	if (style == 1) {
+		return 0.0;
+	}
+	if (style == 3) {
+		return industrial_grille(point, half_size, footprint);
+	}
+	vec2 bars = 1.0 - smoothstep(vec2(0.025), vec2(0.025) + footprint, abs(point));
+	return style == 2 ? max(bars.x, bars.y) : bars.x;
+}
+
 void vertex() {
 	baked_wall = CUSTOM0;
 	baked_layout = UV;
 	world_position = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	world_normal = normalize(MODEL_NORMAL_MATRIX * NORMAL);
-	local_source_position = VERTEX / max(world_scale, 1.0);
+	vec3 facade_vertex = baked_facade_data && section_windows ? CUSTOM1.xyz : VERTEX;
+	vec3 facade_normal = baked_facade_data && section_windows ? CUSTOM2.xyz : NORMAL;
+	local_source_position = facade_vertex / max(world_scale, 1.0);
 	section_wall = vec4(0.0);
 	section_lookup = vec4(0.0);
-	if (section_windows && abs(NORMAL.y) < 0.05) {
+	if (section_windows && abs(facade_normal.y) < 0.05) {
 		for (int index = 0; index < section_wall_count; index++) {
 			vec4 wall = section_texel(index * 2);
 			vec4 lookup = section_texel(index * 2 + 1);
 			vec2 normal = vec2(wall.w, -wall.z) * lookup.w;
 			vec2 delta = local_source_position.xz - wall.xy;
 			float along = dot(delta, wall.zw);
-			if (dot(NORMAL.xz, normal) > 0.995 && abs(dot(delta, normal)) <= 0.025
+			if (dot(facade_normal.xz, normal) > 0.995 && abs(dot(delta, normal)) <= 0.025
 					&& along >= -0.025 && along <= lookup.x + 0.025) {
 				section_wall = wall;
 				section_lookup = lookup;
@@ -198,8 +218,12 @@ void fragment() {
 	vec2 half_glass = vec2(0.54, level_height * 0.215);
 	bool blocked = upper_floor_windows_only &&
 		(cell.y < 1.0 || abs(dot(surface_normal.xz, facade_long_axis)) > 0.58);
+	// Physical apertures suppress the legacy grid. The prepared layout
+	// already excludes any decorative slot that intersects an aperture.
+	blocked = blocked || (open_windows && !section_windows);
 	float side = along_z ? (surface_normal.x >= 0.0 ? 0.0 : 1.0) : (surface_normal.z >= 0.0 ? 2.0 : 3.0);
 	vec3 stored_section_light = vec3(0.0);
+	bool streamed_frame = false;
 	if (section_windows) {
 		vec2 wall_point = vec2(dot(local_source_position.xz - section_wall.xy, section_wall.zw), local_source_position.y);
 		footprint = max(fwidth(wall_point), vec2(0.012));
@@ -215,28 +239,36 @@ void fragment() {
 			cell.x = use_left ? pair.z : pair.w;
 			blocked = center < 0.0;
 			if (!blocked && section_light_offset >= 0) {
-				vec4 prepared_light = section_texel(section_light_offset + int(cell.x));
+				int window_index = int(cell.x);
+				vec4 prepared_light = section_texel(section_light_offset + window_index);
 				stored_section_light = prepared_light.rgb;
 				cell.x = prepared_light.a;
+				if (baked_window_detail_enabled && baked_window_base >= 0) {
+					int frame_index = baked_window_base + window_index;
+					ivec2 mask_position = ivec2(frame_index % 1024, frame_index / 1024);
+					streamed_frame = texelFetch(baked_window_visibility, mask_position, 0).r > 0.5;
+				}
 			}
 			within_cell = wall_point - vec2(center, cell.y * level_height + section_window_vertical.x);
 			vec2 normal = vec2(section_wall.w, -section_wall.z) * section_lookup.w;
 			side = abs(normal.x) > abs(normal.y) ? (normal.x >= 0.0 ? 0.0 : 1.0) : (normal.y >= 0.0 ? 2.0 : 3.0);
 		}
-		half_frame = vec2(0.71, section_window_vertical.y);
+		half_frame = vec2(section_window_half_width_m, section_window_vertical.y);
 		half_glass = half_frame * vec2(0.80, 0.84);
 	}
+	blocked = blocked || hide_decorative_windows;
 	float distance_to_camera = length(CAMERA_POSITION_WORLD - world_position) / max(world_scale, 1.0);
 	float detail_visibility = 1.0 - smoothstep(160.0, 650.0, distance_to_camera);
 	detail_visibility *= 1.0 - smoothstep(0.3, 1.2, max(footprint.x, footprint.y));
-	bool recessed = section_windows && section_window_depth_m > 0.0;
+	float recess_depth = streamed_frame ? max(section_window_depth_m, 0.18) : section_window_depth_m;
+	bool recessed = section_windows && recess_depth > 0.0;
 	vec2 grille_point = within_cell;
 	vec2 pane_point = within_cell;
 	vec3 reveal_normal = vec3(0.0);
 	float reveal_shade = 1.0;
 	if (recessed) {
 		half_glass = max(half_frame - vec2(0.022, 0.028), vec2(0.0));
-		if (!open_windows && !blocked && roof == 0.0 && detail_visibility > 0.0
+		if (!blocked && roof == 0.0 && detail_visibility > 0.0
 				&& all(lessThan(abs(within_cell), half_frame))) {
 			// Orthographic viewing rays are parallel. VIEW points toward the camera.
 			vec3 ray_view = PROJECTION_MATRIX[3][3] > 0.5 ? vec3(0.0, 0.0, -1.0) : -VIEW;
@@ -246,7 +278,7 @@ void fragment() {
 				vec3 tangent = normalize(mat3(MODEL_MATRIX) * vec3(section_wall.z, 0.0, section_wall.w));
 				vec3 up = normalize(MODEL_MATRIX[1].xyz);
 				vec2 wall_ray = vec2(dot(ray_world, tangent), dot(ray_world, up));
-				float back_distance = section_window_depth_m / into_wall;
+				float back_distance = recess_depth / into_wall;
 				vec3 hit = recess_hit(within_cell, half_frame, wall_ray, back_distance);
 				pane_point += wall_ray * hit.x;
 				// Keep painted bars aligned with the middle of the streamed 3D frames.
@@ -352,9 +384,7 @@ void fragment() {
 	if (recessed) {
 		pane = on_reveal ? 0.0 : pane * surround;
 	}
-	if (open_windows || blocked) {
-		// Actual holes and their reveals are the facade's sole window layout.
-		// Painting panes elsewhere would imply sealed or misaligned openings.
+	if (blocked) {
 		surround = 0.0;
 		pane = 0.0;
 	}
@@ -365,15 +395,21 @@ void fragment() {
 		wall_specular = mix(wall_specular, facade_highlight_profile.y, highlight);
 	}
 	float mullion = 1.0 - smoothstep(0.025, 0.025 + footprint.x, abs(within_cell.x));
-	if (recessed && pane > 0.0) {
-		// The GLB's horizontal basis is UP × wall_normal.
+	if ((recessed || window_grille_style >= 0) && pane > 0.0) {
+		// Match the 3D frame's horizontal axis, UP × wall_normal.
 		vec2 frame_point = vec2(-section_lookup.w * grille_point.x, grille_point.y);
-		mullion = industrial_grille(frame_point, half_frame, footprint);
+		if (!section_windows) {
+			frame_point.x = grille_point.x;
+		}
+		mullion = window_grille(window_grille_style >= 0 ? window_grille_style : 3, frame_point, half_frame, footprint);
 	}
 	float pane_variation = match_window_palette ? 1.0 : mix(0.83, 1.08, cell_hash(cell));
 	vec3 glazing = glass_color.rgb * pane_variation;
 	vec3 frame_color = match_window_palette ? window_frame_color.rgb : active_wall.rgb * 0.78;
 	float grille = mullion * (recessed ? 1.0 : 0.65);
+	if (streamed_frame) {
+		grille = 0.0;
+	}
 	glazing = mix(glazing, match_window_palette ? window_frame_color.rgb : active_wall.rgb * 0.63,
 		grille);
 	vec3 facade = mix(plaster, frame_color, surround * detail_visibility);
@@ -440,7 +476,7 @@ void fragment() {
 			roof_world_normal = normalize(tangent * slope.x + surface_normal * up + bitangent * slope.y);
 		}
 	}
-	ALBEDO = mix(facade, roof_finish, roof);
+	ALBEDO = mix(facade, roof_finish * roof_tint.rgb, roof);
 	if (night_uplight > 0.0 && roof < 1.0) {
 		float height = max(0.0, source_position.y);
 		float phase = active_seed * 0.149;
@@ -453,7 +489,7 @@ void fragment() {
 		EMISSION = light_color * mix(vec3(0.32), facade, 0.55)
 			* (1.0 - roof) * beam * falloff * range * night_uplight * 1.7;
 	}
-	if (lit_windows && !open_windows && !blocked && roof < 1.0) {
+	if (lit_windows && !blocked && roof < 1.0) {
 		bool prepared = section_windows && section_light_offset >= 0;
 		float distant = smoothstep(120.0, 350.0, distance_to_camera);
 		float fog_boost = exp(min(night_fog_density * distance_to_camera * 0.82, 2.6));
@@ -462,9 +498,10 @@ void fragment() {
 			// An illuminated opening also lights its recess. Sample that glow
 			// on the facade plane so a grazing ray cannot switch it off.
 			coverage = window_light_coverage(within_cell, half_glass, footprint);
-			if (recessed && coverage > 0.0) {
+			if ((recessed || window_grille_style >= 0) && !streamed_frame && coverage > 0.0) {
 				vec2 frame_point = vec2(-section_lookup.w * within_cell.x, within_cell.y);
-				coverage *= 1.0 - industrial_grille(frame_point, half_frame, footprint);
+				coverage *= 1.0 - window_grille(window_grille_style >= 0 ? window_grille_style : 3,
+					frame_point, half_frame, footprint);
 			}
 			coverage *= mix(1.0, fog_boost, distant);
 		} else {

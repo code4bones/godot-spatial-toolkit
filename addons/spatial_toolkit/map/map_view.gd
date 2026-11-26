@@ -3,6 +3,7 @@ extends Control
 
 signal bbox_added(bbox: Dictionary)
 signal bbox_edited(id: int, bbox: Dictionary)
+signal bbox_shortcut_changed
 signal view_changed
 signal tile_status(message: String)
 
@@ -10,6 +11,8 @@ const Mercator := preload("map_projection.gd")
 const GeoJSONOverlay := preload("geojson_overlay.gd")
 const TileProvider := preload("tile_provider.gd")
 const TileCache := preload("tile_cache.gd")
+const Request := preload("res://addons/spatial_toolkit/core/spatial_http_request.gd")
+const Network := preload("res://addons/spatial_toolkit/core/spatial_network_settings.gd")
 const TILE_SIZE := 256.0
 const MAX_REQUESTS := 4
 const MAX_TEXTURES := 128
@@ -26,11 +29,21 @@ var overlay: GeoJSONOverlay
 var _textures: Dictionary = {}
 var _failed: Dictionary = {}
 var _active: Dictionary = {}
+var _tile_proxy: Variant = null
 var _visible: Array[Vector3i] = []
+var _tiles_restricted := false
+var _tile_coverage: Dictionary = {}
+var _follow_tile_coverage := false
 var _dragging := false
 var bbox_mode := false
+var bbox_drawing_enabled := true:
+	set(value):
+		bbox_drawing_enabled = value
+		if not value:
+			_end_bbox_drag()
 var regions: Array[Dictionary] = []
 var _bbox_drag := false
+var _bbox_shortcut_active := false
 var _bbox_start := Vector2.ZERO
 var _bbox_end := Vector2.ZERO
 var _edit_id := 0
@@ -41,7 +54,13 @@ var _edit_preview := Rect2()
 
 func _ready() -> void:
 	clip_contents = true
-	resized.connect(_refresh)
+	set_process_input(false)
+	_tile_proxy = Network.proxy_for(Network.MAP_EXPLORER)
+	var settings := Network.editor_settings()
+	if settings != null:
+		settings.settings_changed.connect(_on_network_settings_changed)
+	resized.connect(_sync_layout)
+	_sync_layout()
 
 func set_provider(value: TileProvider) -> void:
 	_cancel_requests()
@@ -50,11 +69,54 @@ func set_provider(value: TileProvider) -> void:
 	provider = value
 	_refresh()
 
+func _on_network_settings_changed() -> void:
+	if _update_tile_proxy():
+		_refresh()
+
+func _update_tile_proxy() -> bool:
+	var proxy: Variant = Network.proxy_for(Network.MAP_EXPLORER)
+	if proxy == _tile_proxy:
+		return false
+	_tile_proxy = proxy
+	_cancel_requests()
+	_failed.clear()
+	if provider != null:
+		tile_status.emit("")
+	return true
+
+func set_tile_coverage(bbox: Dictionary, restricted: bool) -> void:
+	_tiles_restricted = restricted
+	_tile_coverage = _project_bbox(bbox) if restricted and _is_valid_tile_coverage(bbox) else {}
+	_follow_tile_coverage = not _tile_coverage.is_empty()
+	_sync_layout()
+
+func _is_valid_tile_coverage(bbox: Dictionary) -> bool:
+	for side in ["west", "north", "east", "south"]:
+		var coordinate: Variant = bbox.get(side)
+		if not (coordinate is int or coordinate is float) or not is_finite(float(coordinate)):
+			return false
+	var longitude_span := float(bbox["east"]) - float(bbox["west"])
+	return (
+		absf(bbox["west"]) <= 180.0 and absf(bbox["east"]) <= 180.0
+		and -90.0 <= bbox["south"] and bbox["south"] < bbox["north"] and bbox["north"] <= 90.0
+		and longitude_span != 0.0 and longitude_span != -360.0
+	)
+
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_VISIBILITY_CHANGED and is_node_ready():
+	if not is_node_ready():
+		return
+	if what == NOTIFICATION_VISIBILITY_CHANGED or what == NOTIFICATION_WM_WINDOW_FOCUS_OUT:
 		_dragging = false
-		_bbox_drag = false
+		_end_bbox_drag()
 		_edit_handle = NO_EDIT_HANDLE
+		queue_redraw()
+	if what == NOTIFICATION_VISIBILITY_CHANGED:
+		_sync_layout()
+
+func _sync_layout() -> void:
+	if _follow_tile_coverage and is_visible_in_tree() and size.x > 0.0 and size.y > 0.0:
+		_fit_projected_bbox(_tile_coverage, true)
+	else:
 		_refresh()
 
 func go_to(longitude: float, latitude: float) -> void:
@@ -82,19 +144,33 @@ func fit_overlay() -> void:
 	_set_center(center.x, center.y)
 
 func fit_bbox(bbox: Dictionary) -> void:
+	_fit_projected_bbox(_project_bbox(bbox))
+
+func _project_bbox(bbox: Dictionary) -> Dictionary:
 	var west := Mercator.longitude_to_x(bbox["west"])
 	var east := Mercator.longitude_to_x(bbox["east"])
 	if east < west:
 		east += 1.0
-	var north := Mercator.latitude_to_y(bbox["north"])
-	var south := Mercator.latitude_to_y(bbox["south"])
+	return {
+		"west": west,
+		"east": east,
+		"north": Mercator.latitude_to_y(bbox["north"]),
+		"south": Mercator.latitude_to_y(bbox["south"]),
+	}
+
+func _fit_projected_bbox(bbox: Dictionary, follow_tile_coverage: bool = false) -> void:
+	var west: float = bbox["west"]
+	var east: float = bbox["east"]
+	var north: float = bbox["north"]
+	var south: float = bbox["south"]
 	var available := (size - Vector2(48, 48)).max(Vector2.ONE)
 	var scale := minf(available.x / maxf(east - west, 1e-12),
 		available.y / maxf(south - north, 1e-12)) / TILE_SIZE
 	zoom = clampi(floori(log(scale) / log(2.0)), 0, 19)
-	_set_center((west + east) * 0.5, (north + south) * 0.5)
+	_set_center((west + east) * 0.5, (north + south) * 0.5, follow_tile_coverage)
 
-func _set_center(x: float, y: float) -> void:
+func _set_center(x: float, y: float, follow_tile_coverage: bool = false) -> void:
+	_follow_tile_coverage = follow_tile_coverage
 	center_x = fposmod(x, 1.0)
 	center_y = clampf(y, 0.0, 1.0)
 	_refresh()
@@ -174,28 +250,58 @@ func _corners(box: Rect2) -> Array[Vector2]:
 	return [box.position, Vector2(box.end.x, box.position.y), box.end,
 		Vector2(box.position.x, box.end.y)]
 
-func _gui_input(event: InputEvent) -> void:
-	if _edit_input(event):
-		accept_event()
+func is_bbox_shortcut_active() -> bool:
+	return _bbox_shortcut_active
+
+func _set_bbox_shortcut_active(active: bool) -> void:
+	if _bbox_shortcut_active != active:
+		_bbox_shortcut_active = active
+		bbox_shortcut_changed.emit()
+
+func _end_bbox_drag() -> void:
+	if not _bbox_drag:
 		return
-	if bbox_mode and event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
-		if event.pressed:
-			_bbox_start = event.position
-			_bbox_end = event.position
-			_bbox_drag = true
-		elif _bbox_drag:
-			_bbox_end = event.position.clamp(Vector2.ZERO, size)
-			_bbox_drag = false
-			var rect := Rect2(_bbox_start, _bbox_end - _bbox_start).abs()
+	_bbox_drag = false
+	set_process_input(false)
+	_set_bbox_shortcut_active(false)
+	queue_redraw()
+
+func _input(event: InputEvent) -> void:
+	# Listen for the modifier release even while the map has no keyboard focus.
+	if event is InputEventKey:
+		var modifier := KEY_META if OS.has_feature("macos") else KEY_CTRL
+		if event.keycode == modifier or event.physical_keycode == modifier:
+			_set_bbox_shortcut_active(event.pressed)
+
+func _bbox_input(event: InputEvent) -> bool:
+	var mouse := event as InputEventMouseButton
+	if _bbox_drag:
+		if mouse != null and mouse.button_index == MOUSE_BUTTON_LEFT and not mouse.pressed:
+			var end_position := mouse.position.clamp(Vector2.ZERO, size)
+			var rect := Rect2(_bbox_start, end_position - _bbox_start).abs()
+			_end_bbox_drag()
 			if rect.size.x >= 4.0 and rect.size.y >= 4.0 and rect.size.x < _world_size():
 				bbox_added.emit(_screen_bbox(rect))
-		queue_redraw()
-		accept_event()
-		return
-	if _bbox_drag:
-		if event is InputEventMouseMotion:
+		elif event is InputEventMouseMotion:
 			_bbox_end = event.position.clamp(Vector2.ZERO, size)
 			queue_redraw()
+		return true
+	if not bbox_drawing_enabled or mouse == null:
+		return false
+	var shortcut := mouse.is_command_or_control_pressed()
+	if mouse.button_index == MOUSE_BUTTON_LEFT and mouse.pressed and (bbox_mode or shortcut):
+		_dragging = false
+		_bbox_start = mouse.position
+		_bbox_end = mouse.position
+		_bbox_drag = true
+		set_process_input(shortcut)
+		_set_bbox_shortcut_active(shortcut)
+		queue_redraw()
+		return true
+	return false
+
+func _gui_input(event: InputEvent) -> void:
+	if _bbox_input(event) or _edit_input(event):
 		accept_event()
 		return
 	if event is InputEventMouseButton:
@@ -234,19 +340,42 @@ func _positions() -> Array[Vector2i]:
 	var count := 1 << zoom
 	var half_tiles := size / (2.0 * TILE_SIZE)
 	var positions: Array[Vector2i] = []
+	if _tiles_restricted and _tile_coverage.is_empty():
+		return positions
 	for y in range(maxi(0, floori(center_y * count - half_tiles.y)),
 			mini(count, ceili(center_y * count + half_tiles.y))):
 		for x in range(floori(center_x * count - half_tiles.x),
 				ceili(center_x * count + half_tiles.x)):
-			positions.append(Vector2i(x, y))
+			var position := Vector2i(x, y)
+			if not _tiles_restricted or not _tile_fragments(position).is_empty():
+				positions.append(position)
 	return positions
+
+func _tile_fragments(position: Vector2i) -> Array[Rect2]:
+	var count := 1 << zoom
+	var y_min := clampf(_tile_coverage["north"] * count - position.y, 0.0, 1.0)
+	var y_max := clampf(_tile_coverage["south"] * count - position.y, 0.0, 1.0)
+	var fragments: Array[Rect2] = []
+	if y_max <= y_min:
+		return fragments
+	var x := posmod(position.x, count)
+	var west: float = _tile_coverage["west"] * count - x
+	var east: float = _tile_coverage["east"] * count - x
+	# A date-line crossing can contribute two separate strips to the z0 tile.
+	for shift in [0, count]:
+		var x_min := clampf(west - shift, 0.0, 1.0)
+		var x_max := clampf(east - shift, 0.0, 1.0)
+		if x_max > x_min:
+			fragments.append(Rect2(x_min, y_min, x_max - x_min, y_max - y_min))
+	return fragments
 
 func _key(position: Vector2i) -> Vector3i:
 	return Vector3i(posmod(position.x, 1 << zoom), position.y, zoom)
 
 func _refresh() -> void:
 	queue_redraw()
-	if not is_inside_tree() or not is_visible_in_tree():
+	_visible.clear()
+	if not is_visible_in_tree() or size.x <= 0.0 or size.y <= 0.0:
 		_cancel_requests()
 		return
 	var count := 1 << zoom
@@ -255,7 +384,6 @@ func _refresh() -> void:
 	positions.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
 		return (Vector2(a) + Vector2(0.5, 0.5)).distance_squared_to(tile_center) < (
 			Vector2(b) + Vector2(0.5, 0.5)).distance_squared_to(tile_center))
-	_visible.clear()
 	for position in positions:
 		var key := _key(position)
 		if not _visible.has(key):
@@ -274,11 +402,7 @@ func _draw() -> void:
 	for position in _positions():
 		var offset := Vector2(position.x - center_x * count, position.y - center_y * count)
 		var rect := Rect2(size * 0.5 + offset * TILE_SIZE, Vector2.ONE * TILE_SIZE)
-		var key := _key(position)
-		if _textures.has(key):
-			draw_texture_rect(_textures[key], rect, false)
-		elif provider != null:
-			draw_rect(rect.grow(-1), Color(0.17, 0.20, 0.25))
+		_draw_tile(position, rect)
 	_draw_overlay()
 	for entry in regions:
 		var color := Color(0.36, 0.73, 1.0) if entry.get("checked", false) else Color(0.94, 0.65, 0.25)
@@ -289,6 +413,22 @@ func _draw() -> void:
 		_draw_region(box, color, editing)
 	if _bbox_drag:
 		draw_rect(Rect2(_bbox_start, _bbox_end - _bbox_start).abs(), Color.WHITE, false, 2.0)
+
+func _draw_tile(position: Vector2i, tile: Rect2) -> void:
+	var texture: Texture2D = _textures.get(_key(position))
+	var fragments: Array[Rect2] = [Rect2(Vector2.ZERO, Vector2.ONE)]
+	if _tiles_restricted:
+		fragments = _tile_fragments(position)
+	for fragment in fragments:
+		var target := Rect2(tile.position + fragment.position * TILE_SIZE, fragment.size * TILE_SIZE)
+		if texture != null:
+			var texture_size := texture.get_size()
+			var source := Rect2(fragment.position * texture_size, fragment.size * texture_size)
+			draw_texture_rect_region(texture, target, source)
+		elif provider != null:
+			var placeholder := target.intersection(tile.grow(-1))
+			if placeholder.has_area():
+				draw_rect(placeholder, Color(0.17, 0.20, 0.25))
 
 func _region_rect(bbox: Dictionary) -> Rect2:
 	var west := Mercator.longitude_to_x(bbox["west"]) - center_x
@@ -338,6 +478,7 @@ func _draw_overlay() -> void:
 func _pump() -> void:
 	if provider == null:
 		return
+	_update_tile_proxy()
 	for key in _visible:
 		if _active.size() >= MAX_REQUESTS:
 			break
@@ -356,21 +497,26 @@ func _pump() -> void:
 				var value: String = cached.get("headers", {}).get(pair[0], "")
 				if not value.is_empty():
 					headers.append("%s: %s" % [pair[1], value])
-		var request := HTTPRequest.new()
+		var proxy: Variant = _tile_proxy
+		if proxy is String and proxy.is_empty():
+			_failed[key] = true
+			tile_status.emit(atr(Network.SETTINGS_PATH))
+			continue
+		var request := Request.new()
 		request.timeout = 10.0
 		request.body_size_limit = 2 * 1024 * 1024
 		request.use_threads = true
 		add_child(request)
 		_active[key] = request
-		request.request_completed.connect(_tile_completed.bind(key, request, url, cached))
-		var error := request.request(url, headers)
+		request.request_completed.connect(_tile_completed.bind(key, request, url, cached, proxy != null))
+		var error := request.request(url, headers, HTTPClient.METHOD_GET, "", proxy)
 		if error != OK:
 			_drop_request(key)
 			_failed[key] = true
-			tile_status.emit("Tile request failed (%s)" % error_string(error))
+			tile_status.emit(atr("Tile request failed (%s)") % error_string(error))
 
 func _drop_request(key: Vector3i) -> void:
-	var request: HTTPRequest = _active[key]
+	var request: Request = _active[key]
 	_active.erase(key)
 	request.cancel_request()
 	request.queue_free()
@@ -380,8 +526,8 @@ func _cancel_requests() -> void:
 		_drop_request(key)
 
 func _tile_completed(result: int, code: int, headers: PackedStringArray,
-		body: PackedByteArray, key: Vector3i, request: HTTPRequest, url: String,
-		cached: Dictionary) -> void:
+		body: PackedByteArray, key: Vector3i, request: Request, url: String,
+		cached: Dictionary, using_proxy: bool) -> void:
 	if _active.get(key) != request:
 		return
 	_active.erase(key)
@@ -393,12 +539,25 @@ func _tile_completed(result: int, code: int, headers: PackedStringArray,
 				TileCache.store_tile(url, image_bytes, headers, cached if code == 304 else {})
 		else:
 			_failed[key] = true
-			tile_status.emit("Could not decode tile image")
+			tile_status.emit(atr("Could not decode tile image"))
 	else:
 		_failed[key] = true
-		tile_status.emit("Tile request failed (HTTP %d, result %d)" % [code, result])
+		tile_status.emit(_tile_error(result, code, using_proxy))
 	queue_redraw()
 	_pump()
+
+func _tile_error(result: int, code: int, using_proxy: bool) -> String:
+	if code == 407:
+		return atr("Proxy authentication failed (HTTP 407). Check the login and password.")
+	if using_proxy:
+		match result:
+			HTTPRequest.RESULT_REQUEST_FAILED:
+				return atr("Invalid proxy URL. Use http://login:pass@server:port.")
+			HTTPRequest.RESULT_CANT_CONNECT:
+				return atr("Could not connect to the tile server through the proxy.")
+			HTTPRequest.RESULT_TLS_HANDSHAKE_ERROR:
+				return atr("TLS verification failed through the proxy.")
+	return atr("Tile request failed (HTTP %d, result %d)") % [code, result]
 
 func _store_texture(key: Vector3i, body: PackedByteArray) -> bool:
 	var image := Image.new()

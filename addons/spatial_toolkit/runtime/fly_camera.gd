@@ -1,3 +1,4 @@
+@tool
 extends Camera3D
 ## Runtime flight camera. A CharacterBody3D parent enables collision-aware flight.
 
@@ -12,7 +13,7 @@ extends Camera3D
 @export var third_person: bool = false:
 	set(value):
 		third_person = value
-		if is_node_ready():
+		if not Engine.is_editor_hint() and is_node_ready():
 			_apply_view_mode()
 
 const FlightMap := preload("res://addons/spatial_toolkit/runtime/flight_map.gd")
@@ -26,6 +27,10 @@ var _eye_height := 0.7
 var _boom_margin := 0.12
 
 func _ready() -> void:
+	if Engine.is_editor_hint():
+		set_physics_process(false)
+		set_process_unhandled_input(false)
+		return
 	var ancestor := get_parent()
 	while ancestor != null:
 		if ancestor is CharacterBody3D:
@@ -49,10 +54,12 @@ func _ready() -> void:
 		_hide_map_legend()
 
 func _exit_tree() -> void:
-	if current and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
+	if not Engine.is_editor_hint() and current and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 func _physics_process(delta: float) -> void:
+	if Engine.is_editor_hint():
+		return
 	if not current or Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		_stop_body()
 		return
@@ -78,6 +85,8 @@ func _stop_body() -> void:
 		_body.velocity = Vector3.ZERO
 
 func _unhandled_input(event: InputEvent) -> void:
+	if Engine.is_editor_hint():
+		return
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_TAB:
 		_toggle_overview()
 		get_viewport().set_input_as_handled()

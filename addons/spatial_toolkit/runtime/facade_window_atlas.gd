@@ -1,26 +1,30 @@
 extends RefCounted
 ## Packs one layout for the painted facade and streamed 3D frames.
 
-const WIDTH_M := 1.42
-const SILL_M := 0.90
-const HEADROOM_M := 0.55
-const MAX_HEIGHT_M := 1.25
+const WIDTH_M := SpatialWindowLayout.DEFAULT_WIDTH_M
+const SILL_M := SpatialWindowLayout.DEFAULT_SILL_M
+const HEADROOM_M := SpatialWindowLayout.DEFAULT_CEILING_CLEARANCE_M
+const MAX_HEIGHT_M := SpatialWindowLayout.DEFAULT_MAX_HEIGHT_M
 const WALL_TOLERANCE_M := 0.025
 const EMPTY_CENTER := -10000.0
 
 static func build(mesh: Mesh, runs: Array[Dictionary], scale_factor: float,
-		floor_height: float, wall_height: float, first_level := 1, lighting_seed := 0) -> Dictionary:
-	var height := minf(MAX_HEIGHT_M, floor_height - SILL_M - HEADROOM_M)
+		floor_height: float, wall_height: float, first_level := 1, lighting_seed := 0,
+		physical_openings: Array = [], pack_texture := true, settings: SpatialWindowLayout = null) -> Dictionary:
+	if settings == null:
+		settings = SpatialWindowLayout.new()
+	var height := maxf(0.0, minf(settings.max_height_m, floor_height - settings.sill_m - settings.ceiling_clearance_m))
 	if first_level == 0:
 		# The base of a one-storey facade also needs a frame height of masonry.
-		height = minf(height, SILL_M)
-	var vertical := Vector2(SILL_M + height * 0.5, height * 0.5)
-	var last_level := floori((wall_height - SILL_M - 2.0 * height + 0.001) / floor_height)
+		height = minf(height, settings.sill_m)
+	var vertical := Vector2(settings.sill_m + height * 0.5, height * 0.5)
+	var last_level := floori((wall_height - settings.sill_m - 2.0 * height + 0.001) / floor_height)
 	if first_level == 0:
 		last_level = mini(last_level, 0)
 	var walls: Array[Dictionary] = []
-	if last_level < first_level or runs.is_empty():
-		return {"walls": walls, "vertical": vertical, "texture": null, "first_level": first_level, "light_offset": -1}
+	if height <= 0.0 or last_level < first_level or runs.is_empty():
+		return {"walls": walls, "vertical": vertical, "texture": null, "first_level": first_level,
+			"light_offset": -1, "width_m": settings.width_m}
 	var triangles := _vertical_triangles(mesh, scale_factor)
 	var lights := PackedColorArray()
 	var sections := 0
@@ -34,6 +38,7 @@ static func build(mesh: Mesh, runs: Array[Dictionary], scale_factor: float,
 		var faces := _wall_triangles(triangles, start, tangent, normal, length_m)
 		if faces.is_empty():
 			continue
+		var openings := _wall_openings(physical_openings, start, tangent, normal, scale_factor)
 		var centers: PackedFloat32Array = run["centers"]
 		var groups: PackedInt32Array = run["groups"]
 		var basis := Basis(Vector3.UP.cross(Vector3(normal.x, 0.0, normal.y)),
@@ -47,7 +52,9 @@ static func build(mesh: Mesh, runs: Array[Dictionary], scale_factor: float,
 			var y := level * floor_height + vertical.x
 			for index in centers.size():
 				var along := centers[index]
-				if not _supports_window(faces, Vector2(along, y), Vector2(WIDTH_M * 0.5, vertical.y)):
+				var center := Vector2(along, y)
+				var half := Vector2(settings.width_m * 0.5, vertical.y)
+				if not _supports_window(faces, center, half) or _overlaps_opening(openings, Rect2(center - half, half * 2.0)):
 					continue
 				var section := posmod(sections + groups[index], 1024)
 				row.append(Vector2(along, section))
@@ -61,23 +68,48 @@ static func build(mesh: Mesh, runs: Array[Dictionary], scale_factor: float,
 			var lit_row := PackedVector2Array()
 			for window in row:
 				var point := start + tangent * window.x
-				var light := _section_light(int(window.y), level, lighting_seed * 4 + side)
+				var light := _section_light(int(window.y), level, lighting_seed * 4 + side, settings.lit_section_fraction)
 				lit_row.append(Vector2(window.x, lights.size()))
 				lights.append(Color(light.r, light.g, light.b, window.y))
 				windows.append({"frame": Transform3D(basis, Vector3(point.x, y, point.y)),
 					"address": Vector2(window.y, level), "light": light})
-			_append_row(texels, lit_row, stride)
+			if pack_texture:
+				_append_row(texels, lit_row, stride)
 		sections += groups[-1] + 1
 		if not windows.is_empty():
-			walls.append({"a": start, "b": run["b"], "normal": normal, "length": length_m,
-				"windows": windows, "texels": texels})
-	var packed := _texture(walls, last_level, lights)
+			var wall := {"a": start, "b": run["b"], "normal": normal, "length": length_m, "windows": windows}
+			if pack_texture:
+				wall["texels"] = texels
+			walls.append(wall)
+	var packed := _texture(walls, last_level, lights) if pack_texture else {"texture": null, "light_offset": -1}
 	return {"walls": walls, "vertical": vertical, "texture": packed["texture"],
-		"first_level": first_level, "light_offset": packed["light_offset"]}
+		"first_level": first_level, "light_offset": packed["light_offset"], "width_m": settings.width_m}
 
-static func _section_light(section: int, level: int, facade: int) -> Color:
+static func _wall_openings(samples: Array, start: Vector2, tangent: Vector2,
+		normal: Vector2, scale_factor: float) -> Array[Rect2]:
+	var openings: Array[Rect2] = []
+	for sample: Dictionary in samples:
+		var outward: Array = sample["normal"]
+		if normal.dot(Vector2(outward[0], outward[2])) < 0.995:
+			continue
+		var center: Array = sample["center"]
+		var delta := Vector2(center[0], center[2]) / scale_factor - start
+		if absf(delta.dot(normal)) > WALL_TOLERANCE_M:
+			continue
+		var half := Vector2(sample["width_m"], sample["height_m"]) / (2.0 * scale_factor)
+		openings.append(Rect2(Vector2(delta.dot(tangent), float(center[1]) / scale_factor) - half, half * 2.0))
+	return openings
+
+static func _overlaps_opening(openings: Array[Rect2], window: Rect2) -> bool:
+	for opening in openings:
+		if opening.intersects(window):
+			return true
+	return false
+
+static func _section_light(section: int, level: int, facade: int,
+		probability := SpatialWindowLayout.DEFAULT_LIT_SECTION_FRACTION) -> Color:
 	var key := section + 1
-	if _light_hash(key, level, facade) > 0.51:
+	if probability <= 0.0 or _light_hash(key, level, facade) > probability:
 		return Color(0.0, 0.0, 0.0)
 	var tone := smoothstep(0.30, 0.85, _light_hash(key + 83, level, facade))
 	var intensity := lerpf(0.45, 0.95, _light_hash(key + 241, level, facade))

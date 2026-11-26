@@ -4,13 +4,11 @@ extends RefCounted
 
 const LABELS := ["Фон карты", "Участки земли"]
 const BACKGROUND := 0
-const DEFAULT_PRESET := "res://assets/materials/ground_rocky.tres"
 const RULES := &"ground_surface_styles"
 const ORIGINAL := &"original_ground_material"
 const FLAT := preload("res://addons/spatial_toolkit/materials/flat_map_surface.gdshader")
 const TEXTURED := preload("res://addons/spatial_toolkit/materials/textured_road.gdshader")
 const TERRAIN := preload("res://addons/spatial_toolkit/materials/terrain_surface.gdshader")
-const DEFAULT_BACKGROUND_COLOR := Color("b5bfaa")
 
 static func targets(map: Node3D, slot: int) -> Array[MeshInstance3D]:
 	var result: Array[MeshInstance3D] = []
@@ -51,7 +49,7 @@ static func selected_material(map: Node3D, slot: int) -> Resource:
 	if meshes.is_empty():
 		return null
 	var source := _source_material(meshes[0])
-	return source if source.shader == TEXTURED else _preset()
+	return source if source.shader == TEXTURED else null
 
 static func selected_color(map: Node3D, slot: int) -> Color:
 	var color: Variant = override_color(map, slot)
@@ -64,23 +62,10 @@ static func selected_color(map: Node3D, slot: int) -> Color:
 	if meshes.is_empty():
 		return Color.WHITE
 	var source := _source_material(meshes[0])
-	if source.shader == FLAT and _preset() == null:
+	if source.shader == FLAT:
 		var flat_color: Variant = source.get_shader_parameter(&"surface_color")
 		return flat_color if flat_color is Color else Color.WHITE
-	return _material_color(source if source.shader == TEXTURED else default_surface(slot))
-
-static func _preset() -> ShaderMaterial:
-	return load(DEFAULT_PRESET) as ShaderMaterial if ResourceLoader.exists(DEFAULT_PRESET) else null
-
-static func default_surface(slot: int) -> ShaderMaterial:
-	var preset := _preset()
-	if preset == null or slot != BACKGROUND:
-		return preset
-	var background := preset.duplicate() as ShaderMaterial
-	background.set_shader_parameter(&"repeat_size", 6.0)
-	background.set_shader_parameter(&"macro_contrast", 0.24)
-	background.set_shader_parameter(&"surface_tint", DEFAULT_BACKGROUND_COLOR)
-	return background
+	return _material_color(source)
 
 static func supports_material(resource: Resource) -> bool:
 	if resource is Texture2D:
@@ -95,14 +80,13 @@ static func surface_overrides(meshes: Array[MeshInstance3D], slot: int, material
 		world_scale: float) -> Dictionary:
 	var result := {}
 	var copies := {}
-	var fallback := default_surface(slot) if material == null and color != null else null
 	for mesh in meshes:
 		var source := _source_material(mesh)
 		if material == null and color == null:
 			result[mesh] = source
 			continue
 		if not copies.has(source):
-			var edited := _make_surface(source, slot, material, fallback, world_scale)
+			var edited := _make_surface(source, slot, material, world_scale)
 			if color is Color:
 				if edited.shader == TEXTURED:
 					edited.set_shader_parameter(&"surface_tint", color)
@@ -128,12 +112,10 @@ static func _material_color(material: Resource) -> Color:
 			return tint
 	return Color.WHITE
 
-static func _make_surface(source: ShaderMaterial, slot: int, material: Resource, fallback: ShaderMaterial,
+static func _make_surface(source: ShaderMaterial, slot: int, material: Resource,
 		world_scale: float) -> ShaderMaterial:
-	if material == null and (source.shader == TEXTURED or fallback == null):
-		return source.duplicate() as ShaderMaterial
 	if material == null:
-		material = fallback
+		return source.duplicate() as ShaderMaterial
 	var edited := ShaderMaterial.new()
 	edited.shader = TEXTURED
 	var repeat_m := 6.0 if slot == BACKGROUND else 4.0

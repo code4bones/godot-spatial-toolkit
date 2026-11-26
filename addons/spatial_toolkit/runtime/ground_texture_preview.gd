@@ -5,6 +5,7 @@ signal ground_style_ready
 
 const FLAT_SHADER := preload("res://addons/spatial_toolkit/materials/textured_road.gdshader")
 const TERRAIN_SHADER := preload("res://addons/spatial_toolkit/materials/terrain_surface.gdshader")
+const Layers := preload("res://addons/spatial_toolkit/core/spatial_layers.gd")
 const AVERAGE_SIZE := 16
 
 @export_range(0.0, 1.0, 0.01) var texture_blend := 0.0
@@ -46,10 +47,8 @@ func set_ground_style(blend: float, variation: float) -> int:
 	for preview: ShaderMaterial in _previews.values():
 		_set_strengths(preview)
 	var changed := int(_apply_material(_map.get_node_or_null("FlatGround") as MeshInstance3D))
-	var landuse := _map.get_node_or_null("Generated/Landuse")
-	if landuse != null:
-		for surface in landuse.get_children():
-			changed += int(_apply_material(surface as MeshInstance3D))
+	for surface in Layers.meshes(_map.get_node_or_null("Generated/Landuse")):
+		changed += int(_apply_material(surface))
 	changed += int(_apply_material(get_parent().get_node_or_null("GrassHill/HillMesh") as MeshInstance3D))
 	if is_instance_valid(_relief):
 		for hill in _relief.get_children():

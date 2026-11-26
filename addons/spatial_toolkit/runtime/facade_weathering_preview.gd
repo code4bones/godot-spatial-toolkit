@@ -4,6 +4,7 @@ extends Node
 signal weathering_ready
 
 const FACADE_SHADER := preload("res://addons/spatial_toolkit/materials/building_facade.gdshader")
+const Layers := preload("res://addons/spatial_toolkit/core/spatial_layers.gd")
 const STRENGTH := &"facade_weathering_strength"
 const TEXTURE_BLEND := &"facade_texture_blend"
 const HIGHLIGHTS := &"facade_highlights"
@@ -33,11 +34,10 @@ var _applying := false
 
 func _ready() -> void:
 	var map := get_parent().get_parent()
-	var buildings := map.get_node_or_null("Generated/Buildings") if map != null else null
-	if buildings != null and (all_buildings or not source_id.is_empty()):
-		for child in buildings.get_children():
-			if child is MeshInstance3D and (all_buildings or str(child.get_meta("source_id", "")) == source_id):
-				_buildings.append(child)
+	if all_buildings or not source_id.is_empty():
+		for building in Layers.buildings(map):
+			if all_buildings or str(building.get_meta("source_id", "")) == source_id:
+				_buildings.append(building)
 				if not all_buildings:
 					break
 	if all_buildings and strength > 0.0 and not _buildings.is_empty():

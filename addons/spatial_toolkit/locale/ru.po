@@ -1,0 +1,1537 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: Spatial Toolkit 0.7.0\n"
+"Language: ru\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
+
+#, c-format
+msgid "Unsupported appearance profile version · %d"
+msgstr "Версия профиля оформления не поддерживается · %d"
+
+msgid "The appearance profile has an invalid sky mode."
+msgstr "Некорректный режим неба в профиле оформления."
+
+#, c-format
+msgid "Invalid layer settings · %s"
+msgstr "Некорректные настройки слоя · %s"
+
+msgid "Invalid material assignment for an individual building."
+msgstr "Некорректное назначение материала отдельному зданию."
+
+msgid "The profile has invalid facade or roof group materials."
+msgstr "Некорректные материалы групп фасадов или крыш в профиле."
+
+msgid "The profile has an invalid facade color."
+msgstr "Некорректный цвет фасада в профиле."
+
+msgid "The profile has an invalid ground surface group."
+msgstr "Некорректная группа поверхностей земли в профиле."
+
+msgid "The profile has an invalid ground material or color."
+msgstr "Некорректный материал или цвет земли в профиле."
+
+msgid "Textures"
+msgstr "Текстуры"
+
+msgid "Set an HTTP proxy address in Project Settings → Spatial Toolkit → Network."
+msgstr "Укажите адрес HTTP-прокси в Настройках проекта → Spatial Toolkit → Network."
+
+msgid "HTTP Proxy"
+msgstr "HTTP-прокси"
+
+msgid "Use Proxy for Map Explorer"
+msgstr "Использовать прокси для Map Explorer"
+
+msgid "Use Proxy for Overpass"
+msgstr "Использовать прокси для Overpass"
+
+msgid "Use Proxy for Textures"
+msgstr "Использовать прокси для текстур"
+
+#, c-format
+msgid "Tile request failed (%s)"
+msgstr "Не удалось загрузить тайл (%s)"
+
+msgid "Could not decode tile image"
+msgstr "Не удалось декодировать изображение тайла"
+
+#, c-format
+msgid "Tile request failed (HTTP %d, result %d)"
+msgstr "Не удалось загрузить тайл (HTTP %d, код результата %d)"
+
+msgid "Could not connect to the tile server through the proxy."
+msgstr "Не удалось подключиться к серверу тайлов через прокси."
+
+msgid "Group Appearance"
+msgstr "Оформление группы"
+
+msgid "Building Appearance"
+msgstr "Оформление зданий"
+
+msgid "Windows"
+msgstr "Окна"
+
+msgid "Lighting and Atmosphere"
+msgstr "Свет и атмосфера"
+
+msgid "World Chunk"
+msgstr "Квадрат мира"
+
+msgid "Dimensions · Source Metres"
+msgstr "Размеры · исходные метры"
+
+msgid "Window Groups"
+msgstr "Группы окон"
+
+msgid "Day"
+msgstr "День"
+
+msgid "Night"
+msgstr "Ночь"
+
+msgid "Drone Controls"
+msgstr "Управление дроном"
+
+msgid "Classic"
+msgstr "Классический"
+
+msgid "Bank and Edge Tracking"
+msgstr "Крен и слежение у края"
+
+msgid "Drone Audio"
+msgstr "Звук дрона"
+
+msgid "Resources"
+msgstr "Ресурсы"
+
+msgid "Street Lamps"
+msgstr "Уличные фонари"
+
+msgid "Wall Lamps"
+msgstr "Настенные фонари"
+
+msgid "Lamp Visibility"
+msgstr "Дальность фонарей"
+
+msgid "Pipes"
+msgstr "Трубы"
+
+msgid "Fencing"
+msgstr "Ограждение"
+
+msgid "Signals"
+msgstr "Сигналы"
+
+msgid "3D Frame Distance"
+msgstr "Дистанция 3D-рам"
+
+msgid "Load catalog"
+msgstr "Загрузить каталог"
+
+msgid "Refresh catalog"
+msgstr "Обновить каталог"
+
+msgid "Filter materials"
+msgstr "Фильтр материалов"
+
+msgid "Load a material catalog."
+msgstr "Загрузить каталог материалов."
+
+#, c-format
+msgid "Showing %d of %d materials"
+msgstr "Показано материалов: %d из %d"
+
+msgid "Loading catalog…"
+msgstr "Загрузка каталога…"
+
+#, c-format
+msgid "Could not load the %s catalog."
+msgstr "Не удалось загрузить каталог %s."
+
+msgid "Invalid asset ID."
+msgstr "Недопустимый ID ресурса."
+
+#, c-format
+msgid "Downloading %s…"
+msgstr "Загрузка %s…"
+
+msgid "Could not download the 1K color map."
+msgstr "Не удалось скачать цветовую карту 1K."
+
+msgid "Could not import the textures into Godot."
+msgstr "Не удалось импортировать текстуры в Godot."
+
+#, c-format
+msgid "%s is already in the project."
+msgstr "%s уже есть в проекте."
+
+#, c-format
+msgid "Imported %s."
+msgstr "Импортировано: %s."
+
+#, c-format
+msgid "%s · In project"
+msgstr "%s · В проекте"
+
+msgid "Double-click or press Enter to import 1K PBR."
+msgstr "Дважды щёлкните или нажмите Enter, чтобы импортировать PBR 1K."
+
+msgid "Drag to a material field in the Inspector."
+msgstr "Перетащите в поле материала в Инспекторе."
+
+msgid "Draw BBox"
+msgstr "Нарисовать границы"
+
+msgid "Draw BBox active"
+msgstr "Рисование границ включено"
+
+#, c-format
+msgid "Hold %s and drag with the left mouse button."
+msgstr "Удерживайте %s и перетащите указатель с зажатой левой кнопкой мыши."
+
+msgid "Map Areas"
+msgstr "Области карты"
+
+msgid "Area"
+msgstr "Область"
+
+msgid "Width (m)"
+msgstr "Ширина (м)"
+
+msgid "Height (m)"
+msgstr "Высота (м)"
+
+msgid "Status"
+msgstr "Статус"
+
+msgid "Select GeoJSON sources or send them from Map Areas."
+msgstr "Выберите источники GeoJSON или отправьте их из раздела «Области карты»."
+
+msgid "A GeoJSON file from Map Areas is unavailable."
+msgstr "GeoJSON-файл из раздела «Области карты» недоступен."
+
+msgid "Sources added to the array."
+msgstr "Источники добавлены в массив."
+
+msgid "These sources are already in the array."
+msgstr "Эти источники уже есть в массиве."
+
+msgid "XYZ URL"
+msgstr "URL XYZ-источника"
+
+msgid "Connect"
+msgstr "Подключить"
+
+msgid "Coordinates"
+msgstr "Координаты"
+
+msgid "Latitude, longitude"
+msgstr "Широта, долгота"
+
+msgid "Go to"
+msgstr "Перейти"
+
+msgid "Open GeoJSON…"
+msgstr "Открыть GeoJSON…"
+
+msgid "Fit GeoJSON"
+msgstr "Вписать GeoJSON"
+
+msgid "Clear GeoJSON"
+msgstr "Очистить GeoJSON"
+
+msgid "Send GeoJSON to Spatial"
+msgstr "Передать GeoJSON в Spatial"
+
+msgid "Open GeoJSON"
+msgstr "Открыть GeoJSON"
+
+msgid "Connect an XYZ source to display tiles."
+msgstr "Подключите XYZ-источник, чтобы показать тайлы."
+
+msgid "Enter an HTTP(S) URL containing {z}, {x} and {y}."
+msgstr "Введите HTTP(S)-адрес с шаблонами {z}, {x} и {y}."
+
+msgid "Enter latitude (−90 to 90), longitude (−180 to 180)."
+msgstr "Введите широту (−90…90) и долготу (−180…180)."
+
+msgid "The loaded GeoJSON file is unavailable."
+msgstr "Загруженный GeoJSON-файл недоступен."
+
+#, c-format
+msgid "Loading %s…"
+msgstr "Загрузка %s…"
+
+#, c-format
+msgid "Could not start GeoJSON reader (%s)."
+msgstr "Не удалось запустить чтение GeoJSON (%s)."
+
+#, c-format
+msgid "%s · %d features · %d skipped"
+msgstr "%s · объектов: %d · пропущено: %d"
+
+msgid "Overpass endpoint"
+msgstr "Сервер Overpass"
+
+msgid "Overpass API"
+msgstr "API Overpass"
+
+msgid "Local PBF file"
+msgstr "Локальный PBF"
+
+msgid "Choose an OSM PBF file"
+msgstr "Выбрать файл OSM PBF"
+
+msgid "Choose an OSM PBF file."
+msgstr "Выберите файл OSM PBF."
+
+msgid "Browse…"
+msgstr "Обзор…"
+
+#, c-format
+msgid "Could not read the PBF coverage. %s"
+msgstr "Не удалось прочитать границы PBF. %s"
+
+msgid "Could not run the PBF reader with the configured Python executable."
+msgstr "Не удалось запустить чтение PBF через настроенный Python."
+
+#, c-format
+msgid "Could not start local PBF extraction. %s"
+msgstr "Не удалось запустить выборку из PBF. %s"
+
+#, c-format
+msgid "Extracting %d area(s) from %s…"
+msgstr "Выборка областей (%d) из %s…"
+
+#, c-format
+msgid "Local PBF extraction failed. %s"
+msgstr "Не удалось получить данные из PBF. %s"
+
+msgid "No output was produced for this area."
+msgstr "Для этой области не получены данные."
+
+msgid "The PBF extractor returned invalid GeoJSON."
+msgstr "Средство выборки из PBF вернуло некорректный GeoJSON."
+
+msgid "The selected area is outside the PBF file bounds."
+msgstr "Выбранная область выходит за границы файла PBF."
+
+msgid "This PBF file does not declare its geographic bounds."
+msgstr "В заголовке PBF не указаны географические границы."
+
+msgid "Local PBF extraction requires the GDAL Python package with the OSM driver."
+msgstr "Для выборки из PBF требуется Python-пакет GDAL с драйвером OSM."
+
+msgid "The configured Python GDAL installation has no OSM driver."
+msgstr "В настроенном Python пакет GDAL установлен без драйвера OSM."
+
+msgid "Local PBF extraction requires GDAL 3.10 or newer."
+msgstr "Для выборки из PBF требуется GDAL 3.10 или новее."
+
+msgid "The PBF file changed during extraction. Retry with a stable file."
+msgstr "Файл PBF изменился в процессе выборки. Повторите с неизменяемым файлом."
+
+#, c-format
+msgid "Area %d: %d features extracted (%d skipped)."
+msgstr "Область %d: извлечено объектов %d (пропущено %d)."
+
+msgid "Overpass base URL or full /interpreter URL"
+msgstr "Базовый URL Overpass или полный URL с /interpreter"
+
+msgid "Fetch checked areas"
+msgstr "Загрузить отмеченные области"
+
+msgid "Fetch"
+msgstr "Загрузить"
+
+
+msgid "Send to Spatial"
+msgstr "Передать в Spatial"
+
+msgid "Check one or more downloaded areas to send to Spatial."
+msgstr "Отметьте одну или несколько загруженных областей для передачи в Spatial."
+
+msgid "Cancel fetch"
+msgstr "Отменить загрузку"
+
+#, c-format
+msgid "Could not load saved areas (%s)."
+msgstr "Не удалось открыть сохранённые области (%s)."
+
+#, c-format
+msgid "Could not save Overpass layers (%s)."
+msgstr "Не удалось сохранить слои Overpass (%s)."
+
+#, c-format
+msgid "Fetch layers (%d/%d)"
+msgstr "Слои загрузки (%d/%d)"
+
+msgid "Select layers for Fetch"
+msgstr "Выберите слои для загрузки"
+
+msgid "Toggle this area for Fetch and Send"
+msgstr "Отметить область для загрузки и отправки"
+
+msgid "Buildings"
+msgstr "Здания"
+
+msgid "Roads"
+msgstr "Дороги"
+
+msgid "Water"
+msgstr "Водоёмы"
+
+msgid "Land use"
+msgstr "Землепользование"
+
+msgid "Parks"
+msgstr "Парки"
+
+#, c-format
+msgid "Area %d removed from the list."
+msgstr "Область %d удалена из списка."
+
+#, c-format
+msgid "Area %d updated. Fetch its new bounds when ready."
+msgstr "Границы области %d обновлены. Данные можно загрузить заново."
+
+#, c-format
+msgid "Could not save areas (%s)."
+msgstr "Не удалось сохранить области (%s)."
+
+#, c-format
+msgid "Area %d"
+msgstr "Область %d"
+
+msgid "Planned"
+msgstr "Запланирована"
+
+msgid "Imported"
+msgstr "Импортирована"
+
+msgid "Downloaded"
+msgstr "Загружена"
+
+msgid "Fetching…"
+msgstr "Загрузка…"
+
+msgid "Retry"
+msgstr "Повторить"
+
+msgid "Remove area from the list"
+msgstr "Удалить область из списка"
+
+#, c-format
+msgid ""
+"S %.6f · W %.6f · N %.6f · E %.6f\n"
+"Double-click to edit this area on the map."
+msgstr ""
+"Ю %.6f · З %.6f · С %.6f · В %.6f\n"
+"Двойной щелчок открывает область на карте для редактирования."
+
+msgid "Enter a valid Overpass URL. HTTPS is required when using a proxy."
+msgstr "Введите корректный URL Overpass. Для прокси требуется HTTPS."
+
+msgid "Select at least one layer to fetch."
+msgstr "Выберите хотя бы один слой для загрузки."
+
+msgid "Check an area that needs the selected layers."
+msgstr "Отметьте область, для которой нужно загрузить выбранные слои."
+
+msgid "Exceeds the 25 km² request limit. Draw a smaller area."
+msgstr "Площадь превышает лимит 25 км² на запрос. Уменьшите область."
+
+msgid "Overpass via proxy"
+msgstr "Overpass через прокси"
+
+#, c-format
+msgid "Fetching Area %d from %s (%d/%d, up to %d seconds)…"
+msgstr "Загрузка области %d из %s (%d/%d, до %d с)…"
+
+#, c-format
+msgid "Could not start Overpass request (%s)."
+msgstr "Не удалось отправить запрос Overpass (%s)."
+
+msgid "Fetch cancelled. Downloaded files are still available."
+msgstr "Загрузка отменена. Загруженные файлы доступны."
+
+msgid "Invalid Overpass response."
+msgstr "Некорректный ответ Overpass."
+
+#, c-format
+msgid "No usable features in the selected layers (%d skipped)."
+msgstr "В выбранных слоях нет пригодных объектов (пропущено %d)."
+
+msgid "Overpass did not respond in time. Retry this area later."
+msgstr "Overpass не ответил вовремя. Повторите загрузку этой области позже."
+
+#, c-format
+msgid "Overpass endpoint returned HTTP %d. Retry later or change the endpoint."
+msgstr "Сервер Overpass вернул HTTP %d. Повторите загрузку позже или смените сервер."
+
+msgid "Overpass rate limit reached. Retry this area later."
+msgstr "Достигнут лимит запросов Overpass. Повторите загрузку этой области позже."
+
+msgid "Proxy authentication failed (HTTP 407). Check the login and password."
+msgstr "Ошибка авторизации на прокси (HTTP 407). Проверьте логин и пароль."
+
+msgid "Invalid proxy URL. Use http://login:pass@server:port."
+msgstr "Некорректный URL прокси. Используйте http://login:pass@server:port."
+
+msgid "Could not connect to Overpass through the proxy."
+msgstr "Не удалось подключиться к Overpass через прокси."
+
+msgid "TLS verification failed through the proxy."
+msgstr "Не удалось проверить TLS при подключении через прокси."
+
+#, c-format
+msgid "Overpass failed (HTTP %d, result %d). Retry later."
+msgstr "Ошибка Overpass (HTTP %d, код результата %d). Повторите загрузку позже."
+
+msgid "Could not write GeoJSON."
+msgstr "Не удалось записать GeoJSON."
+
+msgid "Could not save GeoJSON."
+msgstr "Не удалось сохранить GeoJSON."
+
+#, c-format
+msgid "Area %d: %d features downloaded (%d skipped)."
+msgstr "Область %d · загружено объектов %d, пропущено %d."
+
+#, c-format
+msgid "Area %d: %s"
+msgstr "Область %d · %s"
+
+msgid "Create maps with base colors and no appearance profile or finish textures."
+msgstr "Создавать карту с базовыми цветами, без профиля и текстур отделки"
+
+msgid "Spatial Toolkit · GeoJSON → map"
+msgstr "Spatial Toolkit · GeoJSON → карта"
+
+msgid "Output folder"
+msgstr "Папка результата"
+
+msgid "Open last scene"
+msgstr "Открыть последнюю сцену"
+
+msgid "Folder for new maps"
+msgstr "Папка для новых карт"
+
+msgid "Select GeoJSON sources or send them from Map Explorer."
+msgstr "Выберите GeoJSON в массиве или отправьте его из Map Explorer."
+
+msgid "Elapsed time"
+msgstr "Прошло времени"
+
+msgid "Cancel"
+msgstr "Отменить"
+
+msgid "From open map"
+msgstr "Из открытой карты"
+
+msgid "Add the sources from the open map to the array."
+msgstr "Добавить источники открытой карты в массив"
+
+msgid "Open Map Explorer"
+msgstr "Открыть Map Explorer"
+
+msgid "The first source sets the origin of the new world."
+msgstr "Первый источник задаёт точку отсчёта нового мира."
+
+msgid "The GeoJSON file from Map Explorer is unavailable."
+msgstr "Файл GeoJSON из Map Explorer недоступен."
+
+msgid "Source added to the array."
+msgstr "Источник добавлен в массив."
+
+msgid "This source is already in the array."
+msgstr "Этот источник уже в массиве."
+
+msgid "Added sources from the open map."
+msgstr "Исходники открытой карты добавлены."
+
+msgid "The open map has no available GeoJSON source."
+msgstr "У открытой карты нет доступного исходника GeoJSON."
+
+msgid "All available sources from the open map are already in the array."
+msgstr "Все доступные исходники открытой карты уже в массиве."
+
+msgid "World squares"
+msgstr "Мир по квадратам"
+
+msgid "Saved world"
+msgstr "Сохранённый мир"
+
+msgid "A new world will be created"
+msgstr "Будет создан новый мир"
+
+msgid "Clear the selected world and create a new one from the current GeoJSON sources."
+msgstr "Снять выбор мира и создать новый из текущего массива GeoJSON."
+
+msgid "New world square size (source m)"
+msgstr "Сторона квадрата нового мира, исходных м"
+
+msgid "Sets the size of separately editable scenes. Adding an area uses the grid from world.json."
+msgstr "Определяет размер отдельных редактируемых сцен. При добавлении Area используется сетка из world.json."
+
+msgid "Create world"
+msgstr "Создать мир"
+
+msgid "Choose a saved world"
+msgstr "Выбрать сохранённый мир"
+
+msgid "World selected. Add new GeoJSON sources and click “Update world”."
+msgstr "Мир выбран. Добавьте новые GeoJSON в массив и нажмите «Обновить мир»."
+
+msgid "Could not read the world index."
+msgstr "Не удалось прочитать индекс мира."
+
+msgid "A new world is ready to create from the current GeoJSON sources."
+msgstr "Подготовлен новый мир из текущего массива GeoJSON."
+
+#, python-format
+msgid "World squares · %d · side %s m"
+msgstr "Квадратов в мире · %d · сторона %s м"
+
+msgid "Details will appear after opening the square."
+msgstr "Сведения появятся после открытия квадрата."
+
+msgid "Update world"
+msgstr "Обновить мир"
+
+msgid "Processes new and changed GeoJSON sources and saves the affected squares."
+msgstr "Обрабатывает новые и изменённые GeoJSON из массива и сохраняет затронутые квадраты."
+
+msgid "Merges the source files and saves a separate scene for each square."
+msgstr "Сшивает исходники из массива и сохраняет отдельную сцену для каждого квадрата."
+
+msgid "Assembles the saved squares of the selected world into a new gameplay scene."
+msgstr "Собирает сохранённые квадраты выбранного мира в новую игровую сцену."
+
+msgid "Select world.json in “Saved world”."
+msgstr "Выберите world.json в поле «Сохранённый мир»."
+
+msgid "Preparing world update…"
+msgstr "Подготовка обновления мира…"
+
+msgid "Preparing world…"
+msgstr "Подготовка мира…"
+
+msgid "Could not save the world."
+msgstr "Не удалось сохранить мир."
+
+msgid "Could not open the saved world index."
+msgstr "Не удалось открыть сохранённый индекс мира."
+
+#, python-format
+msgid "Squares updated · %d"
+msgstr "Обновлено квадратов · %d"
+
+#, python-format
+msgid "Sources processed · %d"
+msgstr "Обработано источников · %d"
+
+#, python-format
+msgid "Unchanged sources · %d"
+msgstr "Без изменений · %d"
+
+#, python-format
+msgid "New OSM objects · %d"
+msgstr "Новых объектов OSM · %d"
+
+#, python-format
+msgid "Total OSM objects · %d"
+msgstr "Всего объектов OSM · %d"
+
+#, python-format
+msgid "Skipped objects · %d"
+msgstr "Пропущено объектов · %d"
+
+msgid "Squares saved. Select a square to open."
+msgstr "Квадраты сохранены. Выберите отдельную сцену."
+
+msgid "Sources processed. Squares updated · 0."
+msgstr "Источники обработаны. Обновлено квадратов · 0."
+
+msgid "The selected square's scene is unavailable."
+msgstr "Сцена выбранного квадрата недоступна."
+
+msgid "Preparing to open square…"
+msgstr "Подготовка открытия квадрата…"
+
+#, python-format
+msgid "Opened square %s"
+msgstr "Открыт квадрат %s"
+
+msgid "New map appearance"
+msgstr "Оформление новой карты"
+
+msgid "No profile selected"
+msgstr "Профиль не выбран"
+
+msgid "Layer and group settings, sky, and individual assignments by OSM ID."
+msgstr "Свойства слоёв и групп, небо и индивидуальные назначения по ID OSM."
+
+msgid "Choose an appearance profile"
+msgstr "Выбрать профиль оформления"
+
+msgid "Select a Spatial appearance profile."
+msgstr "Выберите профиль оформления Spatial."
+
+msgid "Profile selected for the next import."
+msgstr "Профиль выбран для следующего импорта."
+
+msgid "The appearance profile is unavailable. Select the file again."
+msgstr "Профиль оформления недоступен. Выберите файл заново."
+
+msgid "Add a GeoJSON source."
+msgstr "Добавьте источник GeoJSON."
+
+#, python-format
+msgid "Item %d: select a GeoJSON file."
+msgstr "Элемент %d: выберите файл GeoJSON."
+
+#, python-format
+msgid "Item %d: the GeoJSON file is unavailable."
+msgstr "Элемент %d: файл GeoJSON недоступен."
+
+#, python-format
+msgid "Item %d: this GeoJSON file has already been added."
+msgstr "Элемент %d: этот файл GeoJSON уже добавлен."
+
+msgid "Could not start processing."
+msgstr "Не удалось начать обработку."
+
+#, python-format
+msgid "Sources %d · OSM objects %d · duplicates %d · conflicts %d"
+msgstr "Источников %d · объектов OSM %d · повторов %d · конфликтов %d"
+
+msgid "Opening saved map…"
+msgstr "Открытие сохранённой карты…"
+
+msgid "Bake chunk size (gameplay m)"
+msgstr "Сторона чанка запекания, игровых м"
+
+msgid "Sets the size of mesh and collision batches in the baked world."
+msgstr "Задаёт размер пакетов мешей и коллизий в запечённом мире."
+
+msgid "Add drone"
+msgstr "Добавить дрон"
+
+msgid "Adds one controllable drone to the assembled world. Configure controls on FlyPlayer."
+msgstr "Добавляет одного управляемого дрона в собранный мир. Управление настраивается на FlyPlayer."
+
+msgid "Drone model"
+msgstr "Модель дрона"
+
+msgid "Model scene with a Node3D root and no physics bodies. Leave empty to use the default model."
+msgstr "Сцена модели с корнем Node3D и без физических тел. Пустое поле использует стандартную модель."
+
+msgid "Nearby 3D window frames"
+msgstr "3D-рамы вблизи"
+
+msgid "Saves the window layout and enables 3D frames near the gameplay camera."
+msgstr "Сохраняет раскладку окон и включает объёмные рамы около игровой камеры."
+
+msgid "Assemble and bake world"
+msgstr "Собрать и запечь мир"
+
+msgid "Wait for the current operation to finish, or cancel it."
+msgstr "Дождитесь завершения текущей операции или отмените её."
+
+msgid "Import preparation cancelled."
+msgstr "Подготовка импорта отменена."
+
+msgid "Could not bake the scene."
+msgstr "Не удалось запечь сцену."
+
+#, python-format
+msgid "Incomplete output: %s"
+msgstr "Незавершённый результат: %s"
+
+msgid "World baked. You can open the last scene."
+msgstr "Мир запечён. Можно открыть последнюю сцену."
+
+#, python-format
+msgid "Source squares · %d"
+msgstr "Исходных квадратов · %d"
+
+#, python-format
+msgid "Coordinate data · %s"
+msgstr "Координатные данные · %s"
+
+#, python-format
+msgid "Coordinate data export · %s"
+msgstr "Экспорт координатных данных · %s"
+
+#, python-format
+msgid "3D frame layout · %d windows"
+msgstr "Раскладка для 3D-рам · %d окон"
+
+msgid "Before → after"
+msgstr "До → после"
+
+msgid "Nodes"
+msgstr "Узлы"
+
+msgid "Meshes"
+msgstr "Меши"
+
+msgid "Materials"
+msgstr "Материалы"
+
+msgid "Surfaces"
+msgstr "Поверхности"
+
+msgid "Static bodies"
+msgstr "Статические тела"
+
+msgid "Collision shapes"
+msgstr "Формы коллизий"
+
+msgid "Visual triangles"
+msgstr "Визуальные треугольники"
+
+msgid "Collision triangles"
+msgstr "Физические треугольники"
+
+#, python-format
+msgid "Chunks: %s"
+msgstr "Чанков: %s"
+
+msgid "Surfaces estimate draw submissions. FPS requires a separate measurement."
+msgstr "Поверхности — оценка числа отправок на отрисовку, не измерение FPS."
+
+msgid "See bake_report.json next to the scene."
+msgstr "Подробности: bake_report.json рядом со сценой."
+
+msgid "Spatial world index"
+msgstr "Индекс мира Spatial"
+
+msgid "Spatial appearance profile"
+msgstr "Профиль оформления Spatial"
+
+#, c-format
+msgid "%s must be a boolean."
+msgstr "%s должен быть bool."
+
+#, c-format
+msgid "%s must be an object."
+msgstr "%s должен быть объектом."
+
+#, c-format
+msgid "%s must be between 0 and 1."
+msgstr "%s должен быть от 0 до 1."
+
+msgid "A .geojson or .json file is required."
+msgstr "Ожидается файл .geojson или .json."
+
+msgid "A bake is already running."
+msgstr "Уже выполняется запекание."
+
+#, c-format
+msgid "A mirrored transform requires a separate save: %s"
+msgstr "Зеркальный transform требует отдельного сохранения: %s"
+
+#, c-format
+msgid "A source scene changed during assembly: %s"
+msgstr "Исходная сцена изменилась во время сборки: %s"
+
+#, c-format
+msgid "A static mesh is required: %s"
+msgstr "Нужен статический меш: %s"
+
+msgid "A style operation is already running."
+msgstr "Уже выполняется стилизация."
+
+msgid "A world assembly is already running."
+msgstr "Уже выполняется сборка мира."
+
+msgid "An authored node already exists at StyleLayer/GeneratedStyle."
+msgstr "StyleLayer/GeneratedStyle занят пользовательским узлом."
+
+msgid "An authored node of another type already uses the name StyleLayer."
+msgstr "Имя StyleLayer занято пользовательским узлом другого типа."
+
+#, c-format
+msgid "An extra Generated node requires a separate game scene: %s"
+msgstr "Дополнительный узел Generated требует отдельной игровой сцены: %s"
+
+#, c-format
+msgid "An extra node requires a separate game scene: %s"
+msgstr "Дополнительный узел требует отдельной игровой сцены: %s"
+
+msgid "An operation is already running."
+msgstr "Уже выполняется операция."
+
+msgid "An original Spatial Toolkit map with Generated/Buildings is required."
+msgstr "Нужна исходная Generated/Buildings карта Spatial Toolkit."
+
+msgid "Applying the appearance profile…"
+msgstr "Применение профиля оформления…"
+
+#, c-format
+msgid "Assembling squares · %d / %d"
+msgstr "Сборка квадратов · %d / %d"
+
+msgid "Bake cancelled."
+msgstr "Запекание отменено."
+
+msgid "Breakable windows require collisions and at most eight apertures per building."
+msgstr "Разбиваемые окна требуют коллизий и до восьми проёмов на здание."
+
+msgid "Building the road network"
+msgstr "Расчёт дорожной сети"
+
+msgid "Cancelling map creation…"
+msgstr "Отмена создания карты…"
+
+msgid "Checking building overlaps"
+msgstr "Проверка пересечений зданий"
+
+msgid "Checking dependencies…"
+msgstr "Проверка зависимостей…"
+
+msgid "Checking world sources"
+msgstr "Проверка исходников мира"
+
+#, c-format
+msgid "Colours must use the #RRGGBB format: %s"
+msgstr "Цвет должен иметь формат #RRGGBB: %s"
+
+#, c-format
+msgid "Combining features %d/%d…"
+msgstr "Объединение объектов %d/%d…"
+
+msgid "Could not add the drone."
+msgstr "Не удалось добавить дрон."
+
+#, c-format
+msgid "Could not build %s."
+msgstr "Не удалось собрать %s."
+
+#, c-format
+msgid "Could not build mesh %s"
+msgstr "Не удалось собрать меш %s"
+
+#, c-format
+msgid "Could not create the output folder: %s"
+msgstr "Не удалось создать папку результата: %s"
+
+msgid "Could not create the scene"
+msgstr "Не удалось создать сцену"
+
+#, c-format
+msgid "Could not create the temporary output folder: %s"
+msgstr "Не удалось создать временную папку результата: %s"
+
+#, c-format
+msgid "Could not create the world folder: %s"
+msgstr "Не удалось создать папку мира: %s"
+
+#, c-format
+msgid "Could not create the world revision: %s"
+msgstr "Не удалось создать ревизию мира: %s"
+
+#, c-format
+msgid "Could not load scene %s"
+msgstr "Не удалось загрузить сцену %s"
+
+msgid "Could not load the World Style Engine."
+msgstr "Не удалось загрузить World Style Engine."
+
+msgid "Could not load the scene bake builder."
+msgstr "Не удалось загрузить сборщик запекания."
+
+msgid "Could not load the scene generator."
+msgstr "Не удалось загрузить генератор сцены."
+
+msgid "Could not load the world assembler."
+msgstr "Не удалось загрузить сборщик мира."
+
+#, c-format
+msgid "Could not open the saved scene for %s."
+msgstr "Не удалось открыть сохранённую сцену %s."
+
+msgid "Could not open the world's attribute bank."
+msgstr "Не удалось открыть банк атрибутов мира."
+
+#, c-format
+msgid "Could not prepare the list of world features: %s"
+msgstr "Не удалось подготовить список объектов мира: %s"
+
+#, c-format
+msgid "Could not read geometry for %s."
+msgstr "Не удалось прочитать геометрию %s."
+
+msgid "Could not read the full import report."
+msgstr "Не удалось прочитать полный отчёт импорта."
+
+msgid "Could not read the map scene."
+msgstr "Не удалось прочитать сцену карты."
+
+msgid "Could not read the prepared geometry."
+msgstr "Не удалось прочитать подготовленную геометрию."
+
+#, c-format
+msgid "Could not save %s: %s"
+msgstr "Не удалось сохранить %s: %s"
+
+#, c-format
+msgid "Could not save near-window details: %s"
+msgstr "Не удалось сохранить ближние окна: %s"
+
+#, c-format
+msgid "Could not save the baked map: %s"
+msgstr "Не удалось сохранить запечённую карту: %s"
+
+msgid "Could not save the collision report."
+msgstr "Не удалось сохранить отчёт коллизий."
+
+#, c-format
+msgid "Could not save the scene: %s"
+msgstr "Не удалось сохранить сцену: %s"
+
+#, c-format
+msgid "Could not save the style: %s"
+msgstr "Не удалось сохранить стиль: %s"
+
+msgid "Could not save world data."
+msgstr "Не удалось сохранить данные мира."
+
+msgid "Could not start Python. Check the interpreter path."
+msgstr "Не удалось запустить Python. Проверьте путь к интерпретатору."
+
+#, c-format
+msgid "Could not write the collision report: %s"
+msgstr "Ошибка записи отчёта коллизий: %s"
+
+msgid "Creating scene objects"
+msgstr "Создание объектов сцены"
+
+#, c-format
+msgid "Creating scenes · %d / %d"
+msgstr "Создание сцен · %d / %d"
+
+#, c-format
+msgid "Custom child nodes require a separate save: %s"
+msgstr "Пользовательские дочерние узлы требуют отдельного сохранения: %s"
+
+#, c-format
+msgid "Custom vertex attributes are already in use: %s"
+msgstr "Пользовательские vertex-атрибуты уже заняты: %s"
+
+#, c-format
+msgid "Degenerate transform on %s"
+msgstr "Вырожденный transform у %s"
+
+#, c-format
+msgid "Dividing into squares · %d / %d"
+msgstr "Разделение по сетке · %d / %d"
+
+#, c-format
+msgid "Duplicate source_id: %s"
+msgstr "Повторный source_id: %s"
+
+msgid "Enable materials, sky, and lighting to use the profile's facades and roofs."
+msgstr "Включите «Материалы, небо и освещение» для фасадов и крыш из профиля."
+
+msgid "GeoJSON processing failed"
+msgstr "Ошибка обработки GeoJSON"
+
+#, c-format
+msgid ""
+"Invalid Python response (code %d). Python 3.10+, pyproj, and GEOS 3.10+ are required.\n"
+"%s"
+msgstr ""
+"Некорректный ответ Python (код %d). Нужны Python 3.10+, pyproj и GEOS 3.10+.\n"
+"%s"
+
+#, c-format
+msgid "Invalid preset: %s"
+msgstr "Некорректный пресет: %s"
+
+#, c-format
+msgid "Invalid window style on %s. %s"
+msgstr "Некорректный стиль окон у %s. %s"
+
+msgid "Map creation cancelled."
+msgstr "Создание карты отменено."
+
+msgid "Merging GeoJSON sources"
+msgstr "Объединение источников GeoJSON"
+
+#, c-format
+msgid "Mirrored or degenerate collision transform: %s"
+msgstr "Зеркальный/вырожденный transform коллизии: %s"
+
+#, c-format
+msgid "Mirrored or degenerate transform: %s"
+msgstr "Mirrored/вырожденный transform не поддерживается: %s"
+
+msgid "OSM feature information is unavailable."
+msgstr "Сведения об объектах OSM недоступны."
+
+msgid "Packing the scene…"
+msgstr "Упаковка сцены…"
+
+msgid "Paths"
+msgstr "Пешеходные пути"
+
+msgid "Planned roads"
+msgstr "Проектируемые дороги"
+
+msgid "Preparing geometry"
+msgstr "Подготовка геометрии"
+
+msgid "Preparing patrol routes…"
+msgstr "Подготовка маршрутов патрулей…"
+
+msgid "Processing cancelled."
+msgstr "Обработка отменена."
+
+msgid "Processing exceeded 180 seconds. Try a smaller area."
+msgstr "Обработка превысила 180 секунд. Попробуйте меньший участок."
+
+msgid "Projecting features"
+msgstr "Проекция объектов"
+
+msgid "Reading prepared geometry…"
+msgstr "Чтение подготовленной геометрии…"
+
+msgid "Reading the saved map…"
+msgstr "Чтение сохранённой карты…"
+
+msgid "Saving map.tscn…"
+msgstr "Сохранение map.tscn…"
+
+msgid "Saving roads and building footprints…"
+msgstr "Сохранение дорог и контуров зданий…"
+
+msgid "Saving the game scene…"
+msgstr "Сохранение игровой сцены…"
+
+msgid "Saving the report and OSM references…"
+msgstr "Сохранение отчёта и привязок OSM…"
+
+msgid "Saving the styled map…"
+msgstr "Сохранение стилизованной карты…"
+
+msgid "Select a saved map scene inside the project."
+msgstr "Выберите сохранённую сцену карты внутри проекта."
+
+msgid "Select a saved world's world.json inside the project."
+msgstr "Выберите world.json сохранённого мира внутри проекта."
+
+#, c-format
+msgid "Select an existing .geojson or .json file: %s"
+msgstr "Выберите существующий файл .geojson или .json: %s"
+
+msgid "Select an existing GeoJSON file."
+msgstr "Выберите существующий файл GeoJSON."
+
+msgid "Select an original unbaked map for styling."
+msgstr "Выберите исходную незапечённую карту для стилизации."
+
+msgid "Select existing GeoJSON files."
+msgstr "Выберите существующие файлы GeoJSON."
+
+msgid "Select the original editable Spatial Toolkit scenes."
+msgstr "Выберите исходные редактируемые сцены Spatial Toolkit."
+
+#, c-format
+msgid "Skinned meshes cannot be baked: %s"
+msgstr "Скелетные меши не запекаются: %s"
+
+#, c-format
+msgid "Special physics properties require a separate save: %s"
+msgstr "Особые физические свойства требуют отдельного сохранения: %s"
+
+#, c-format
+msgid "Special visual properties require a separate save: %s"
+msgstr "Особые визуальные свойства требуют отдельного сохранения: %s"
+
+msgid "Specify Python 3.10 or later."
+msgstr "Укажите Python 3.10 или новее."
+
+msgid "Starting GeoJSON processing…"
+msgstr "Запуск обработки GeoJSON…"
+
+msgid "Style operation cancelled."
+msgstr "Стилизация отменена."
+
+msgid "StyleLayer is ready."
+msgstr "StyleLayer готов."
+
+msgid "StyleLayer must have an identity transform and no script. The authored layer was preserved."
+msgstr "StyleLayer должен иметь единичный transform без скрипта; пользовательский слой сохранён."
+
+msgid "Styling buildings"
+msgstr "Оформление зданий"
+
+#, c-format
+msgid "Styling buildings %d/%d…"
+msgstr "Стилизация зданий %d/%d…"
+
+msgid "Styling floors"
+msgstr "Оформление полов"
+
+msgid "Styling foundations"
+msgstr "Оформление фундаментов"
+
+msgid "Styling land, roads, and water"
+msgstr "Оформление земли, дорог и воды"
+
+msgid "Styling was cancelled. StyleLayer was preserved."
+msgstr "Стилизация отменена; StyleLayer не изменён."
+
+msgid "The aperture limit and building interval must be integers between 1 and 1,000."
+msgstr "Лимит проёмов и шаг выбора зданий должны быть целыми числами от 1 до 1000."
+
+msgid "The assembly service must be in the scene tree."
+msgstr "Сервис сборки должен находиться в дереве сцены."
+
+msgid "The attribute bank has an invalid sky mode."
+msgstr "В банке атрибутов указан некорректный режим неба."
+
+msgid "The building budget was exceeded. StyleLayer was preserved."
+msgstr "Превышен бюджет зданий; StyleLayer не изменён."
+
+msgid "The chunk size must be between 10 and 100,000 game metres."
+msgstr "Размер чанка должен быть от 10 до 100000 игровых метров."
+
+msgid "The cladding triangle budget was exceeded. StyleLayer was preserved."
+msgstr "Превышен бюджет треугольников облицовки; StyleLayer не изменён."
+
+msgid "The decor instance budget was exceeded. StyleLayer was preserved."
+msgstr "Превышен бюджет декоративных экземпляров; StyleLayer не изменён."
+
+msgid "The full import report contains invalid JSON."
+msgstr "Полный отчёт импорта содержит некорректный JSON."
+
+msgid "The game scene was saved."
+msgstr "Игровая сцена сохранена."
+
+msgid "The generated StyleLayer was edited. Save those edits separately before replacing the layer."
+msgstr "Сгенерированный StyleLayer изменён пользователем; сохраните эти изменения отдельно перед заменой."
+
+msgid "The height must be a positive number."
+msgstr "Высота должна быть положительным числом."
+
+msgid "The import worker did not save the GeoJSON registry."
+msgstr "Обработчик не сохранил реестр GeoJSON."
+
+msgid "The import worker returned an invalid world plan."
+msgstr "Обработчик вернул некорректный план мира."
+
+msgid "The local GeoJSON worker could not be found."
+msgstr "Не найден локальный обработчик GeoJSON."
+
+msgid "The local style preset could not be found."
+msgstr "Не найден локальный пресет стиля."
+
+msgid "The map has no supported generated meshes."
+msgstr "В карте нет поддерживаемых сгенерированных мешей."
+
+msgid "The map root must be a Node3D."
+msgstr "Корень карты должен быть Node3D."
+
+#, c-format
+msgid "The mesh must consist of triangles: %s"
+msgstr "Меш должен состоять из треугольников: %s"
+
+msgid "The older style layer failed its integrity check. Save it and generate styling from the source map."
+msgstr "Слой предыдущей версии не прошёл проверку целостности. Сохраните его и создайте оформление из исходной карты."
+
+msgid "The output folder must be inside the project (res://)."
+msgstr "Папка результата должна находиться внутри проекта (res://)."
+
+msgid "The output folder must be inside the project."
+msgstr "Папка результата должна быть внутри проекта."
+
+#, c-format
+msgid "The plan contains a duplicate square: %s."
+msgstr "План содержит повтор квадрата %s."
+
+msgid "The plan contains an invalid square."
+msgstr "План содержит некорректный квадрат."
+
+msgid "The preset must contain a JSON object."
+msgstr "Пресет должен содержать JSON object."
+
+msgid "The reference origin must have valid WGS84 longitude and latitude."
+msgstr "Опорная точка должна содержать допустимые longitude и latitude в WGS84."
+
+msgid "The report path is outside the output folder."
+msgstr "Путь отчёта находится вне папки результата."
+
+msgid "The saved world index is unavailable."
+msgstr "Индекс сохранённого мира недоступен."
+
+msgid "The scene does not contain an original Spatial Toolkit Generated map."
+msgstr "Сцена не содержит исходную Generated-карту Spatial Toolkit."
+
+msgid "The scene file already exists."
+msgstr "Файл сцены уже существует."
+
+msgid "The scene is already baked. Select the source map."
+msgstr "Сцена уже запечена; выберите исходную карту."
+
+#, c-format
+msgid "The source node's top_level setting is unsupported: %s"
+msgstr "top_level исходного узла не поддерживается: %s"
+
+msgid "The source scene changed while being loaded. Retry the bake."
+msgstr "Исходная сцена изменилась во время чтения. Повторите запекание."
+
+msgid "The source scene has an invalid sky mode."
+msgstr "Некорректный режим неба исходной сцены."
+
+msgid "The source scenes or world index changed. Retry the bake."
+msgstr "Исходные сцены или индекс мира изменились. Повторите запекание."
+
+msgid "The square index is missing or invalid."
+msgstr "Индекс квадратов отсутствует или повреждён."
+
+msgid "The square is missing a required ground, lighting, or camera node."
+msgstr "В квадрате отсутствуют базовые узлы земли, освещения или камеры."
+
+msgid "The square is missing its original Generated map."
+msgstr "У квадрата отсутствует исходная Generated-карта."
+
+msgid "The square is missing valid bounds."
+msgstr "У квадрата отсутствуют корректные границы."
+
+msgid "The square root has an unsupported transform."
+msgstr "У корня квадрата неподдерживаемый transform."
+
+msgid "The square scene belongs to a different world index."
+msgstr "Сцена квадрата относится к другому индексу мира."
+
+#, c-format
+msgid "The square scene is unavailable inside the world folder: %s"
+msgstr "Сцена квадрата недоступна внутри папки мира: %s"
+
+msgid "The square scene's scale differs from the world index."
+msgstr "Масштаб сцены квадрата отличается от индекса мира."
+
+msgid "The square size must be a positive number."
+msgstr "Размер квадрата должен быть положительным числом."
+
+msgid "The worker returned a path outside the output folder."
+msgstr "Обработчик вернул путь вне папки результата."
+
+msgid "The worker's diagnostic response is too large."
+msgstr "Слишком большой диагностический ответ обработчика."
+
+msgid "The world folder must be inside the project (res://)."
+msgstr "Папка мира должна находиться внутри проекта (res://)."
+
+msgid "The world index changed during assembly. Retry the bake."
+msgstr "Индекс мира изменился во время сборки. Повторите запекание."
+
+msgid "The world index changed or could not be written. Retry the update."
+msgstr "Индекс мира изменился или недоступен для записи. Повторите добавление."
+
+msgid "The world index changed. Retry the update."
+msgstr "Индекс мира изменился. Повторите добавление."
+
+msgid "The world index has an invalid feature registry path."
+msgstr "В индексе указан некорректный путь реестра объектов мира."
+
+msgid "The world index has an invalid geographic origin."
+msgstr "В индексе мира некорректная географическая точка отсчёта."
+
+msgid "The world index has an invalid revision."
+msgstr "В индексе мира некорректная ревизия."
+
+msgid "The world index has an invalid scale."
+msgstr "В индексе мира некорректный масштаб."
+
+msgid "The world index has an invalid source path."
+msgstr "В индексе мира некорректный путь исходника."
+
+msgid "The world index has an invalid square ID."
+msgstr "В индексе мира некорректный ID квадрата."
+
+msgid "The world index has an invalid square scene reference."
+msgstr "В индексе мира некорректная ссылка на сцену квадрата."
+
+msgid "The world index has an invalid square size."
+msgstr "В индексе мира некорректный размер квадрата."
+
+msgid "The world index has no saved squares."
+msgstr "В индексе мира отсутствуют сохранённые квадраты."
+
+msgid "The world index is missing source or projection information."
+msgstr "В индексе мира отсутствуют сведения об исходниках и проекции."
+
+msgid "The world scale must be a finite number between 1 and 100."
+msgstr "Масштаб мира должен быть конечным числом от 1 до 100."
+
+msgid "There are no source buildings to style."
+msgstr "Нет исходных зданий для стилизации."
+
+msgid "This square contains no OSM features."
+msgstr "Объектов OSM в квадрате нет."
+
+#, c-format
+msgid "Triangles are required: %s"
+msgstr "Нужны треугольники: %s"
+
+#, c-format
+msgid "Triangles with normals are required: %s"
+msgstr "Нужны треугольники с нормалями: %s"
+
+msgid "Unknown drone controller."
+msgstr "Неизвестный контроллер дрона."
+
+#, c-format
+msgid "Unknown palette material: %s"
+msgstr "Неизвестный материал палитры: %s"
+
+#, c-format
+msgid "Unknown technology variant: %s"
+msgstr "Неизвестный технологический вариант: %s"
+
+#, c-format
+msgid "Unsupported dynamic or empty mesh: %s"
+msgstr "Неподдерживаемый динамический/пустой меш: %s"
+
+#, c-format
+msgid "Unsupported or disabled collision: %s"
+msgstr "Неподдерживаемая/отключённая коллизия: %s"
+
+msgid "Validating GeoJSON data"
+msgstr "Проверка данных GeoJSON"
+
+msgid "Version 1 preserves the source environment. Night, fog, and wet asphalt are unavailable."
+msgstr "v1 сохраняет source environment; night/fog/wet_asphalt отложены."
+
+msgid "Version 1 requires performance.prefer_multimesh=true."
+msgstr "v1 требует performance.prefer_multimesh=true."
+
+msgid "Version 1 supports only procedural signs."
+msgstr "v1 использует только процедурные вывески; generated images не поддерживаются."
+
+msgid "Window density must be limited, auto, or full."
+msgstr "Плотность окон должна быть limited, auto или full."
+
+msgid "World assembly cancelled."
+msgstr "Сборка мира отменена."
+
+msgid "Writing prepared data"
+msgstr "Запись подготовленных данных"
+
+msgid "environment must be an object."
+msgstr "environment должен быть объектом."
+
+#, c-format
+msgid "facades.%s must be an object."
+msgstr "facades.%s должен быть объектом."
+
+msgid "facades.neon.colors must contain #RRGGBB values."
+msgstr "facades.neon.colors должен содержать #RRGGBB."
+
+msgid "facades.palette must contain known material names."
+msgstr "facades.palette должен содержать известные имена материалов."
+
+msgid "facades.technology must be an object."
+msgstr "facades.technology должен быть объектом."
+
+msgid "facades.technology.enabled must be a boolean."
+msgstr "facades.technology.enabled должен быть bool."
+
+msgid "id must be a non-empty string."
+msgstr "id должен быть непустой строкой."
+
+#, c-format
+msgid "performance.%s has an invalid budget."
+msgstr "performance.%s имеет неверный бюджет."
+
+#, c-format
+msgid "performance.%s is out of range."
+msgstr "performance.%s имеет неверный диапазон."
+
+msgid "schema_version must be 1."
+msgstr "schema_version должен быть 1."
+
+msgid "seed must be a finite integer."
+msgstr "seed должен быть конечным целым числом."
+
+msgid "target.preserve_source_geometry must be true."
+msgstr "target.preserve_source_geometry должен быть true."
+
+#, c-format
+msgid "technology.%s is out of range."
+msgstr "technology.%s имеет неверный диапазон."
+
+msgid "technology.archetypes must contain known variants."
+msgstr "technology.archetypes должен содержать известные варианты."
+
+msgid "world_scale must be positive."
+msgstr "world_scale должен быть положительным."
+
+#, c-format
+msgid "Unknown drone controller: %s"
+msgstr "Неизвестный контроллер дрона: %s"
+
+msgid "Attach the map root to the scene tree before adding flight."
+msgstr "Добавьте корень карты в дерево сцены перед настройкой полёта."
+
+msgid "Flight requires Generated geometry and OverviewCamera."
+msgstr "Для полёта нужны геометрия Generated и камера OverviewCamera."
+
+msgid "The existing flight overlay has no camera. The overlay was preserved."
+msgstr "У существующего слоя полёта отсутствует камера. Слой сохранён."
+
+msgid "An authored node already uses the name FlyPlayer. The node was preserved."
+msgstr "Имя FlyPlayer уже используется пользовательским узлом. Узел сохранён."
+
+msgid "The drone model must be a Node3D scene without physics bodies or areas."
+msgstr "Модель дрона должна быть сценой Node3D без физических тел и областей."
+
+msgid "Window frame and glass colours must be finite."
+msgstr "Цвета рамы и стекла должны быть конечными."
+
+msgid "Unknown distant window grille pattern."
+msgstr "Неизвестный рисунок дальних окон."
+
+msgid "The frame mesh must have finite dimensions and nonzero width and height in the XY plane."
+msgstr "Меш рамы должен иметь конечные размеры и ненулевую ширину и высоту в плоскости XY."
+
+msgid "The selected resource must be a map appearance profile."
+msgstr "Выбранный ресурс должен быть профилем оформления карты."
+
+msgid "Chunks"
+msgstr "Чанки"
+
+msgid "Filter chunks"
+msgstr "Фильтр чанков"
+
+msgid "No chunks match the filter."
+msgstr "Нет чанков, подходящих под фильтр."
+
+msgid "Select or create a world in Spatial."
+msgstr "Выберите или создайте мир в Spatial."
+
+msgid "World"
+msgstr "Мир"
+
+msgid "Squares saved. Open Chunks in the bottom dock to browse them."
+msgstr "Квадраты сохранены. Откройте вкладку «Чанки» в нижнем доке."
+
+msgid "Could not open the selected square."
+msgstr "Не удалось открыть выбранный квадрат."
+
+msgid "Select a square to preview."
+msgstr "Выберите квадрат для предпросмотра."
+
+msgid "Loading square preview…"
+msgstr "Загрузка предпросмотра квадрата…"
+
+msgid "Square preview unavailable."
+msgstr "Предпросмотр квадрата недоступен."

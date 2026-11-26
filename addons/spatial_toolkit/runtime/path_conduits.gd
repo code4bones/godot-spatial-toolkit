@@ -1,22 +1,41 @@
+@tool
 extends Node3D
 ## An optional above-ground conduit layer built from imported Paths centerlines.
 
+const Localization := preload("res://addons/spatial_toolkit/ui/editor_localization.gd")
 const ConduitPulse := preload("res://addons/spatial_toolkit/runtime/conduit_pulse.gd")
 const ConduitFence := preload("res://addons/spatial_toolkit/runtime/path_conduit_fence.gd")
+const Layers := preload("res://addons/spatial_toolkit/core/spatial_layers.gd")
 const PIPE_SHADER := preload("res://addons/spatial_toolkit/materials/path_conduit.gdshader")
 const SIDES := 8
 const CHUNK_M := 84.0
-const END_DEPTH_M := 0.48
-const RAMP_M := 8.0
 const PIPE_HEIGHT_M := 3.6
 const PIPE_RADIUS_M := 0.34
-const STEP_M := 2.0
 const STRAIGHT_MIN_M := 5.5
 const STRAIGHT_MAX_M := 18.0
 
+@export_group("Resources")
 @export var metal_library: PackedScene
 @export var industrial_library: PackedScene
 @export var fence_library: PackedScene
+
+@export_group("Pipes", "pipe_")
+@export_range(0.1, 100.0, 0.1, "suffix:m") var pipe_height_m := PIPE_HEIGHT_M
+@export_range(0.05, 10.0, 0.01, "suffix:m") var pipe_radius_m := PIPE_RADIUS_M
+@export_range(0.05, 20.0, 0.01, "suffix:m") var pipe_end_depth_m := 0.48
+@export_range(0.1, 100.0, 0.1, "suffix:m") var pipe_ramp_length_m := 8.0
+@export_range(0.25, 20.0, 0.05, "suffix:m") var pipe_sample_step_m := 2.0
+
+@export_group("Fencing", "fence_")
+@export_range(0.1, 30.0, 0.05, "suffix:m") var fence_side_offset_m := ConduitFence.SIDE_OFFSET_M
+@export_range(0.65, 40.0, 0.05, "suffix:m") var fence_bay_length_m := ConduitFence.SPAN_M
+@export_range(0.0, 10.0, 0.01, "suffix:m") var fence_top_clearance_m := ConduitFence.TOP_CLEARANCE_M
+
+@export_group("Signals", "signal_")
+@export_range(0, 32, 1) var signal_trains := 5
+@export_range(0.1, 200.0, 0.1, "suffix:m/s") var signal_speed_mps := ConduitPulse.SPEED_M
+@export_range(0.1, 30.0, 0.1, "suffix:m") var signal_ring_spacing_m := ConduitPulse.RING_SPACING_M
+@export_range(0.0, 16.0, 0.01) var signal_emission := 1.4
 
 var _neighbors: Dictionary = {}
 var _chunks: Dictionary = {}
@@ -28,8 +47,15 @@ var _scale := 1.0
 var _ground_y := 0.0
 var _fence: ConduitFence
 
+func _validate_property(property: Dictionary) -> void:
+	Localization.localize_inspector_group(property)
+
 func _ready() -> void:
-	var map := get_parent().get_parent() as Node3D
+	if Engine.is_editor_hint():
+		return
+	var map := get_parent().get_parent() as Node3D if get_parent() != null else null
+	if map == null:
+		return
 	var paths := map.get_node_or_null("Generated/Paths") as Node3D
 	var ground := map.get_node_or_null("FlatGround") as Node3D
 	if paths == null or ground == null:
@@ -49,8 +75,9 @@ func _ready() -> void:
 	_part_meshes.append(_extract_part(metal_library, "pipe_60cm_metal"))
 	_part_meshes.append(_extract_part(industrial_library, "modular_industrial_pipes_01_pipe02"))
 	var meshes := {}
-	for mesh in paths.get_children():
-		meshes[str(mesh.get_meta("source_id", ""))] = mesh
+	for mesh in Layers.meshes(paths):
+		if mesh.is_visible_in_tree() and mesh.has_meta("source_id"):
+			meshes[str(mesh.get_meta("source_id"))] = mesh
 	var routed: Array[Node3D] = []
 	for feature: Dictionary in model["features"]:
 		var id := str(feature.get("id", ""))
@@ -66,11 +93,12 @@ func _ready() -> void:
 		return
 	if fence_library != null:
 		var road_ids := {}
-		if roads != null:
-			for road in roads.get_children():
-				if road.visible and road.has_meta("source_id"):
-					road_ids[road.get_meta("source_id")] = true
-		_fence = ConduitFence.new(model["features"], road_ids, _neighbors, PIPE_HEIGHT_M + PIPE_RADIUS_M)
+		for road in Layers.meshes(roads):
+			if road.is_visible_in_tree() and road.has_meta("source_id"):
+				road_ids[road.get_meta("source_id")] = true
+		_fence = ConduitFence.new(model["features"], road_ids, _neighbors, pipe_height_m + pipe_radius_m,
+			fence_side_offset_m, fence_bay_length_m, fence_top_clearance_m,
+			ConduitFence.PIPE_CLEARANCE_M + (pipe_radius_m - PIPE_RADIUS_M))
 	var visited := {}
 	var routes := 0
 	# Degree-two vertices join through the original way boundaries.
@@ -130,6 +158,10 @@ func _ready() -> void:
 	set_meta("source_path_count", routed.size())
 	set_meta("route_count", routes)
 
+func clearance_for_lamps(default_m: float) -> float:
+	var half_width := maxf(pipe_radius_m, fence_side_offset_m if fence_library != null else 0.0)
+	return default_m + maxf(0.0, half_width - ConduitFence.SIDE_OFFSET_M)
+
 func _stage_geometry(mesh: Node3D) -> void:
 	mesh.hide()
 	add_child(mesh)
@@ -156,12 +188,15 @@ func _add_signal_trains(seed_value: int) -> void:
 				connections[endpoint] = []
 			connections[endpoint].append(index)
 	var occupied := {}
-	for index in 5:
+	for index in signal_trains:
 		var pulse := ConduitPulse.new()
 		pulse.name = "SignalTrain%d" % (index + 1)
+		pulse.speed_mps = signal_speed_mps
+		pulse.ring_spacing_m = signal_ring_spacing_m
+		pulse.emission = signal_emission
 		add_child(pulse)
 		pulse.setup(_pulse_routes, connections, occupied, _scale, _ground_y,
-			PIPE_RADIUS_M, seed_value + index * 179, 1.5 + index * 1.6)
+			pipe_radius_m, seed_value + index * 179, 1.5 + index * 1.6)
 
 func _load_clearances(directory: String) -> Dictionary:
 	var path := directory.path_join("building_clearances.json")
@@ -171,11 +206,9 @@ func _load_clearances(directory: String) -> Dictionary:
 	return value if value is Dictionary and value.get("version") == 1 else {}
 
 func _apply_road_clearances(roads: Node, changes: Dictionary) -> void:
-	if roads == null:
-		return
-	for road in roads.get_children():
+	for road in Layers.meshes(roads):
 		var id := str(road.get_meta("source_id", ""))
-		if not road is MeshInstance3D or not changes.has(id) or road.mesh == null:
+		if not changes.has(id) or road.mesh == null:
 			continue
 		var triangles: Array = changes[id]
 		if triangles.is_empty():
@@ -239,8 +272,8 @@ func _emit_route(points: PackedVector2Array) -> void:
 		length += points[index - 1].distance_to(points[index])
 	var begin_ramp: bool = _neighbors[points[0]].size() == 1
 	var end_ramp: bool = _neighbors[points[-1]].size() == 1
-	var ramp := minf(RAMP_M, length / (2.0 if begin_ramp and end_ramp else 1.0))
-	var height := PIPE_HEIGHT_M if not (begin_ramp and end_ramp) else minf(PIPE_HEIGHT_M, length * 0.65)
+	var ramp := minf(pipe_ramp_length_m, length / (2.0 if begin_ramp and end_ramp else 1.0))
+	var height := pipe_height_m if not (begin_ramp and end_ramp) else minf(pipe_height_m, length * 0.65)
 	var positions := PackedVector3Array()
 	var distances := PackedFloat32Array()
 	var travelled := 0.0
@@ -248,7 +281,7 @@ func _emit_route(points: PackedVector2Array) -> void:
 		var a := points[index - 1]
 		var b := points[index]
 		var span := a.distance_to(b)
-		var steps := maxi(2, ceili(span / STEP_M))
+		var steps := maxi(2, ceili(span / maxf(0.25, pipe_sample_step_m)))
 		for step in steps:
 			var progress := float(step) / steps
 			var point := a.lerp(b, progress)
@@ -306,8 +339,8 @@ func _store_straight_part(key: Vector2i, variant: int, a: Vector3, b: Vector3) -
 	var tangent := (b - a).normalized()
 	var side := tangent.cross(Vector3.UP).normalized()
 	var basis := Basis(side, tangent, side.cross(tangent)).scaled_local(Vector3(
-		PIPE_RADIUS_M * 2.0 / bounds.size.x, a.distance_to(b) / bounds.size.y,
-		PIPE_RADIUS_M * 2.0 / bounds.size.z) * _scale)
+		pipe_radius_m * 2.0 / bounds.size.x, a.distance_to(b) / bounds.size.y,
+		pipe_radius_m * 2.0 / bounds.size.z) * _scale)
 	var center := bounds.get_center()
 	center.y = bounds.position.y
 	var origin := a * _scale - basis * center
@@ -339,7 +372,7 @@ func _point_at_height(point: Vector2, distance: float, length: float, ramp: floa
 		rise = smoothstep(0.0, ramp, distance)
 	if end_ramp:
 		rise = minf(rise, smoothstep(0.0, ramp, length - distance))
-	return Vector3(point.x, lerpf(-END_DEPTH_M, height, rise), point.y)
+	return Vector3(point.x, lerpf(-pipe_end_depth_m, height, rise), point.y)
 
 func _emit_span(surface: SurfaceTool, points: PackedVector3Array, distance: PackedFloat32Array,
 		index: int) -> void:
@@ -362,7 +395,7 @@ func _emit_span(surface: SurfaceTool, points: PackedVector3Array, distance: Pack
 func _vertex(surface: SurfaceTool, point: Vector3, basis: Basis, side: int, distance: float) -> void:
 	var slice := Vector2.from_angle(float(side % SIDES) * TAU / SIDES)
 	var normal := basis.x * slice.x + basis.y * slice.y
-	var position := (point + normal * PIPE_RADIUS_M) * _scale
+	var position := (point + normal * pipe_radius_m) * _scale
 	position.y += _ground_y
 	surface.set_uv(Vector2(float(side) / SIDES, distance))
 	surface.set_normal(normal)
@@ -376,7 +409,7 @@ func _add_junctions(material: ShaderMaterial) -> void:
 	if points.is_empty():
 		return
 	var joint := SphereMesh.new()
-	joint.radius = PIPE_RADIUS_M * _scale * 1.08
+	joint.radius = pipe_radius_m * _scale * 1.08
 	joint.height = joint.radius * 2.0
 	joint.radial_segments = 8
 	joint.rings = 4
@@ -388,7 +421,7 @@ func _add_junctions(material: ShaderMaterial) -> void:
 	for index in points.size():
 		var point := points[index] * _scale
 		instances.set_instance_transform(index, Transform3D(Basis.IDENTITY,
-			Vector3(point.x, _ground_y + PIPE_HEIGHT_M * _scale, point.y)))
+			Vector3(point.x, _ground_y + pipe_height_m * _scale, point.y)))
 	var mesh := MultiMeshInstance3D.new()
 	mesh.name = "PipeJunctions"
 	mesh.multimesh = instances

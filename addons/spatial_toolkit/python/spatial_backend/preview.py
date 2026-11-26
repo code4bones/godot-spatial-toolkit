@@ -13,15 +13,13 @@ from pathlib import Path
 
 from .building_overlap import coincident_buildings, coincident_walls
 from .clearance_geometry import ClearanceGeometry
+from .merge import merge_whole_osm, validate_declared_crs
+from .osm_rules import DEFAULT_OSM_RULES, DEFAULT_WIDTHS, normalize_osm_rules, parse_osm_rules
 from .preview_geometry import FOUNDATION_BOTTOM, FOUNDATION_RENDER_TOP, Geometry, GeometryError, building_mesh, surface
 from .facade_geometry import (
     MAX_MAP_OPENINGS, FacadeBudgetError, building_with_openings, choose_grid_stride,
-    count_plan_at_stride, plan_facade, plan_limited_facade,
+    count_plan_at_stride, normalize_aperture_options, plan_facade, plan_limited_facade,
 )
-
-
-DEFAULT_WIDTHS = {"tertiary": 9.0, "residential": 6.0, "service": 4.0,
-                  "footway": 2.0, "steps": 2.0, "path": 2.0, "cycleway": 2.5}
 
 
 def positive_number(value):
@@ -100,16 +98,20 @@ def height_for(tags, default_height=3.0, level_height=3.0):
     return resolved["height_m"], resolved["height_source"], resolved["assumptions"]
 
 
-def width_for(tags):
+def width_for(tags, rules=DEFAULT_OSM_RULES):
     width = positive_number(tags.get("width"))
     if width:
         return width, "width_tag", []
     lanes = positive_number(tags.get("lanes"))
     if lanes:
-        return lanes * 3.2, "lanes_estimate", ["Estimated width: lanes * 3.2 m"]
+        lane_width = rules["lane_width_m"]
+        width = lanes * lane_width
+        if not math.isfinite(width):
+            raise GeometryError("Estimated road width exceeds finite metre range")
+        return width, "lanes_estimate", [f"Estimated width: lanes * {lane_width:g} m"]
     highway = tags.get("highway", "service")
     subtype = tags.get(highway, "service") if highway in ("proposed", "construction") else highway
-    width = DEFAULT_WIDTHS.get(subtype, 4.0)
+    width = rules["road_widths_m"].get(subtype, rules["fallback_road_width_m"])
     return width, "type_estimate", [f"Unknown width: preview {subtype} default {width:g} m"]
 
 
@@ -147,41 +149,15 @@ def validate_geometry(geometry):
     return points
 
 
-def prepare(source, output, default_height=3.0, level_height=3.0, overwrite=True,
-            snapshot_source=False, world_scale=1.0, open_windows=False, window_density="auto",
-            window_limit=6, window_every_n=5, breakable_windows=False):
-    try:
-        from pyproj import CRS, Transformer, __version__ as pyproj_version
-    except ImportError as exc:
-        raise RuntimeError("Map generation requires pyproj installed in the selected Python environment") from exc
-
-    if positive_number(default_height) is None or positive_number(level_height) is None:
-        raise ValueError("Default height and level height must be finite positive metres")
-    if isinstance(world_scale, bool) or not isinstance(world_scale, (int, float)) or not math.isfinite(world_scale) or not 1 <= world_scale <= 100:
-        raise ValueError("World scale must be a finite number between 1 and 100")
-    if not isinstance(open_windows, bool):
-        raise ValueError("Open windows must be a boolean")
-    if window_density not in ("limited", "auto", "full"):
-        raise ValueError("Window density must be 'limited', 'auto' or 'full'")
-    for name, value in (("Window limit", window_limit), ("Window every N", window_every_n)):
-        if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= 1000:
-            raise ValueError(f"{name} must be an integer between 1 and 1000")
-    if breakable_windows and (not open_windows or window_density != "limited" or window_limit > 8):
-        raise ValueError("Breakable windows require limited apertures with at most eight per building")
-    world_scale = float(world_scale)
-    default_height, level_height = float(default_height), float(level_height)
-    source, output = Path(source), Path(output)
-    if output.exists() and (not output.is_dir() or (not overwrite and any(output.iterdir()))):
-        raise ValueError("Output directory must be new or empty; refusing to overwrite existing content")
-    raw = source.read_bytes()
+def _read_geojson(raw):
     doc = json.loads(raw)
     if not isinstance(doc, dict) or doc.get("type") != "FeatureCollection" or not isinstance(doc.get("features"), list):
         raise ValueError("Expected FeatureCollection")
-    if doc.get("crs"):
-        crs = doc["crs"]
-        name = crs.get("properties", {}).get("name", "") if isinstance(crs, dict) and isinstance(crs.get("properties"), dict) else ""
-        if name not in ("urn:ogc:def:crs:OGC:1.3:CRS84", "urn:ogc:def:crs:OGC::CRS84", "EPSG:4326"):
-            raise ValueError(f"Unsupported declared CRS: {name}")
+    validate_declared_crs(doc)
+    return doc
+
+
+def _validated_features(doc):
     features = doc["features"]
     validated, skipped, seen, all_points = [], [], set(), []
     for index, f in enumerate(features):
@@ -225,8 +201,95 @@ def prepare(source, output, default_height=3.0, level_height=3.0, overwrite=True
     if not all_points:
         reasons = "; ".join(f"{s['id']}: {s['reason']}" for s in skipped[:5])
         raise ValueError("No usable features" + (f": {reasons}" if reasons else ""))
-    lon = (min(p[0] for p in all_points) + max(p[0] for p in all_points)) / 2
-    lat = (min(p[1] for p in all_points) + max(p[1] for p in all_points)) / 2
+    return validated, skipped, all_points
+
+
+def _extent_origin(points):
+    lon = (min(p[0] for p in points) + max(p[0] for p in points)) / 2
+    lat = (min(p[1] for p in points) + max(p[1] for p in points)) / 2
+    return lon, lat
+
+
+class MergeConflictError(ValueError):
+    def __init__(self, report):
+        self.report = report
+        conflicts = report["conflicts"]
+        examples = ", ".join(sorted(conflicts)[:5])
+        super().__init__(f"Conflicting OSM IDs ({len(conflicts)}): {examples}")
+
+
+def _with_progress(items, phase, report):
+    if report is None:
+        yield from items
+        return
+    total = len(items)
+    step = max(1, (total + 99) // 100)
+    report(phase, 0, total)
+    for completed, item in enumerate(items, start=1):
+        yield item
+        if completed % step == 0 or completed == total:
+            report(phase, completed, total)
+
+
+def prepare(source, output, default_height=3.0, level_height=3.0, overwrite=True,
+            snapshot_source=False, world_scale=1.0, open_windows=False, window_density="auto",
+            window_limit=6, window_every_n=5, breakable_windows=False, *, local_origin=None,
+            additional_sources=(), progress=None, mesh_output=None, patrol_clearances=True, osm_rules=None,
+            aperture_options=None):
+    if progress is not None:
+        progress("validate", 0, 0)
+    try:
+        from pyproj import CRS, Transformer, __version__ as pyproj_version
+    except ImportError as exc:
+        raise RuntimeError("Map generation requires pyproj installed in the selected Python environment") from exc
+
+    if positive_number(default_height) is None or positive_number(level_height) is None:
+        raise ValueError("Default height and level height must be finite positive metres")
+    osm_rules = normalize_osm_rules(osm_rules)
+    if local_origin is not None and (
+            not isinstance(local_origin, (tuple, list)) or len(local_origin) != 2
+            or any(isinstance(value, bool) or not isinstance(value, (int, float))
+                   or not -limit <= value <= limit for value, limit in zip(local_origin, (180, 90)))):
+        raise ValueError("Local origin must be a finite WGS84 (longitude, latitude) pair")
+    if isinstance(world_scale, bool) or not isinstance(world_scale, (int, float)) or not math.isfinite(world_scale) or not 1 <= world_scale <= 100:
+        raise ValueError("World scale must be a finite number between 1 and 100")
+    if not isinstance(open_windows, bool):
+        raise ValueError("Open windows must be a boolean")
+    if window_density not in ("limited", "auto", "full"):
+        raise ValueError("Window density must be 'limited', 'auto' or 'full'")
+    for name, value in (("Window limit", window_limit), ("Window every N", window_every_n)):
+        if isinstance(value, bool) or not isinstance(value, int) or not 1 <= value <= 1000:
+            raise ValueError(f"{name} must be an integer between 1 and 1000")
+    if breakable_windows and (not open_windows or window_density != "limited" or window_limit > 8):
+        raise ValueError("Breakable windows require limited apertures with at most eight per building")
+    aperture_options = normalize_aperture_options(aperture_options) if open_windows or aperture_options is not None else None
+    world_scale = float(world_scale)
+    default_height, level_height = float(default_height), float(level_height)
+    source, output = Path(source), Path(output)
+    if output.exists() and (not output.is_dir() or (not overwrite and any(output.iterdir()))):
+        raise ValueError("Output directory must be new or empty; refusing to overwrite existing content")
+    raw = source.read_bytes()
+    doc = _read_geojson(raw)
+    merge_report = None
+    merge_paths = list(dict.fromkeys(path.resolve() for path in (source, *map(Path, additional_sources))))
+    if len(merge_paths) > 1:
+        merged, merge_report = merge_whole_osm(_with_progress(merge_paths, "merge", progress))
+        if merged is None:
+            raise MergeConflictError(merge_report)
+        if merge_report["sources"][0]["sha256"] != hashlib.sha256(raw).hexdigest():
+            raise ValueError("The base GeoJSON changed during the merge. Please retry.")
+        if progress is not None:
+            progress("validate", 0, 0)
+        if local_origin is None:
+            _, _, base_points = _validated_features(doc)
+            local_origin = _extent_origin(base_points)
+        for path, record in zip(merge_paths, merge_report["sources"]):
+            record["path"] = path.as_posix()
+        doc = merged
+        raw = (json.dumps(doc, ensure_ascii=False, separators=(",", ":"), allow_nan=False) + "\n").encode("utf-8")
+    features = doc["features"]
+    validated, skipped, all_points = _validated_features(doc)
+    lon, lat = _extent_origin(all_points) if local_origin is None else map(float, local_origin)
     projection = f"+proj=aeqd +lat_0={lat:.10f} +lon_0={lon:.10f} +datum=WGS84 +units=m +no_defs"
     transform = Transformer.from_crs("EPSG:4326", CRS.from_proj4(projection), always_xy=True)
 
@@ -239,15 +302,21 @@ def prepare(source, output, default_height=3.0, level_height=3.0, overwrite=True
     provenance = {"path": source.as_posix(), "sha256": hashlib.sha256(raw).hexdigest(),
                   "generator": doc.get("generator"), "timestamp": doc.get("timestamp"),
                   "copyright": doc.get("copyright"), "crs": "EPSG:4326 / GeoJSON longitude,latitude"}
+    if merge_report is not None:
+        provenance["path"] = (output / "source.geojson").resolve().as_posix()
+        provenance["merge_sources"] = [path.as_posix() for path in merge_paths]
+        provenance["merge"] = {key: merge_report[key] for key in ("unique_osm_ids", "identical_duplicates")}
     model = {"version": "0.1", "source": provenance, "units": "meters",
              "local_origin": {"longitude": lon, "latitude": lat}, "projection": projection,
-             "axes": {"x": "east", "y": "up", "z": "south"}, "features": []}
+             "axes": {"x": "east", "y": "up", "z": "south"}, "features": [], "osm_rules": osm_rules}
     game_transform = {"kind": "uniform_scale", "world_scale": world_scale,
                       "origin_local_m": [0, 0, 0], "source_units": "meters",
                       "game_units": "meters", "scope": "generated_geometry_only",
                       "drone_scaled": False}
     model["game_transform"] = game_transform
-    report = {"source": provenance, "input_features": len(features), "generated": {},
+    report = {"source": provenance, "local_origin": model["local_origin"], "projection": projection,
+              "osm_rules": osm_rules,
+              "input_features": len(features), "generated": {},
               "height_sources": {}, "width_sources": {}, "polygon_holes": 0, "skipped": skipped,
               "limitations": ["Flat ground; no elevation data", "No collision, navigation or road lane markings",
                               "Road junctions use overlapping round buffers; no intersection or lane topology solving",
@@ -256,6 +325,8 @@ def prepare(source, output, default_height=3.0, level_height=3.0, overwrite=True
               "dependencies": {"python": platform.python_version(), "pyproj": pyproj_version,
                                "GEOS": ">=3.10 system C library"}}
     report["game_transform"] = game_transform
+    if merge_report is not None:
+        report["merge"] = merge_report
     foundation_assumption = "Gameplay-only wall foundation extends to -0.05 source-local m below the flat ground; source geometry and above-ground height evidence are unchanged"
     report["foundation"] = {"source_bottom_y_m": FOUNDATION_BOTTOM,
                             "bottom_y_m": FOUNDATION_BOTTOM * world_scale,
@@ -285,7 +356,7 @@ def prepare(source, output, default_height=3.0, level_height=3.0, overwrite=True
         # triangles. Roof-only triangulation validates each building's topology;
         # invalid features are skipped once, never counted as eligible windows.
         prepared, full_plans = [], []
-        for fid, tags, kind, g in validated:
+        for fid, tags, kind, g in _with_progress(validated, "project", progress):
             item = {"id": fid, "kind": kind, "source": {"id": fid, "tags": tags},
                     "assumptions": ["Ground elevation assumed 0 m"], "geometry": {"type": g.get("type"), "coordinates": project(g.get("coordinates", []))}}
             roofs, full_plan = None, None
@@ -302,7 +373,8 @@ def prepare(source, output, default_height=3.0, level_height=3.0, overwrite=True
                         roofs = [triangle for rings in polygons for triangle in geometry.polygon(rings)]
                         levels = positive_number(tags.get("building:levels"))
                         facade_floor_height = item["wall_height_m"] / levels if levels else level_height
-                        full_plan = plan_facade(polygons, item["height_m"], item["wall_height_m"], facade_floor_height)
+                        full_plan = plan_facade(polygons, item["height_m"], item["wall_height_m"],
+                                                facade_floor_height, aperture_options=aperture_options)
                         full_plans.append(full_plan)
                 except GeometryError as exc:
                     report["skipped"].append({"id": fid, "reason": str(exc)})
@@ -310,6 +382,8 @@ def prepare(source, output, default_height=3.0, level_height=3.0, overwrite=True
             prepared.append((fid, tags, kind, g, item, roofs, full_plan))
         # Legacy open-shell imports preserve their independently cut facades.
         # Glazed maps use the solid-wall ownership rules before selecting panes.
+        if progress is not None:
+            progress("overlap", 0, 0)
         resolve_overlap = not open_windows or breakable_windows
         redundant = coincident_buildings(prepared, geometry) if resolve_overlap else {}
         wall_cutoffs = coincident_walls(prepared, geometry, redundant) if resolve_overlap else {}
@@ -355,7 +429,7 @@ def prepare(source, output, default_height=3.0, level_height=3.0, overwrite=True
             selected_buildings=(sum(selected for _, selected, _ in limited_selection.values())
                                 if window_density == "limited" else len(full_plans)),
             adjusted=(planned_count != estimated_full_count if window_density == "limited" else grid_stride > 1))
-        for fid, tags, kind, g, item, roofs, full_plan in prepared:
+        for fid, tags, kind, g, item, roofs, full_plan in _with_progress(prepared, "geometry", progress):
             if fid in redundant:
                 item["rendered_as"] = redundant[fid]["rendered_as"]
                 item["assumptions"].append(redundant[fid]["reason"])
@@ -375,7 +449,8 @@ def prepare(source, output, default_height=3.0, level_height=3.0, overwrite=True
                                 rank, selected, selected_plan = limited_selection[fid]
                             else:
                                 selected_plan = (full_plan if grid_stride == 1 else plan_facade(
-                                    polygons, item["height_m"], item["wall_height_m"], full_plan["floor_height"], grid_stride))
+                                    polygons, item["height_m"], item["wall_height_m"], full_plan["floor_height"],
+                                    grid_stride, aperture_options=aperture_options))
                             if window_density == "limited" and (not selected or selected_plan["count"] == 0):
                                 v, n = building_mesh(geometry, polygons, item["height_m"], wall_cutoffs.get(fid))
                                 facade_openings = {
@@ -419,7 +494,7 @@ def prepare(source, output, default_height=3.0, level_height=3.0, overwrite=True
                 else:
                     if g.get("type") != "LineString":
                         raise GeometryError("Expected road LineString")
-                    width, reason, notes = width_for(tags)
+                    width, reason, notes = width_for(tags, osm_rules)
                     item.update(width_m=width, width_source=reason)
                     item["assumptions"].extend(notes)
                     status = tags["highway"] if tags["highway"] in ("proposed", "construction") else "existing"
@@ -474,8 +549,10 @@ def prepare(source, output, default_height=3.0, level_height=3.0, overwrite=True
                                "height_m": item.get("height_m"), "wall_height_m": item.get("wall_height_m"),
                                "roof_height_m": item.get("roof_height_m"), "height_source": item.get("height_source"),
                                "roof_source": item.get("roof_source"), "width_m": item.get("width_m"),
+                               "width_source": item.get("width_source"),
                                "world_scale": world_scale, "source_dimensions_m": source_dimensions,
                                "game_dimensions_m": game_dimensions, "facade_openings": facade_openings,
+                               **({"facade_geometry": item["geometry"]} if kind == "building" else {}),
                                **({"coincident_source_ids": sorted(aliases[fid])} if fid in aliases else {}),
                                **({"source_foundation_bottom_y_m": FOUNDATION_BOTTOM,
                                    "foundation_bottom_y_m": FOUNDATION_BOTTOM * world_scale,
@@ -492,24 +569,38 @@ def prepare(source, output, default_height=3.0, level_height=3.0, overwrite=True
                           "window_limit": window_limit, "window_every_n": window_every_n}
     if breakable_windows:
         report["settings"]["breakable_windows"] = True
+    if open_windows:
+        report["settings"]["apertures"] = aperture_options
+        model["apertures"] = aperture_options
+    if progress is not None:
+        progress("topology", 0, 0)
     model["road_shared_vertices"] = [{"position_xz": list(p), "feature_ids": sorted(ids)} for p, ids in sorted(network.items()) if len(ids) > 1]
-    with ClearanceGeometry() as clearance:
-        model["patrol_clearances"] = clearance.generate(model["features"], visual=False)["patrols"]
+    if patrol_clearances:
+        with ClearanceGeometry() as clearance:
+            model["patrol_clearances"] = clearance.generate(model["features"], visual=False)["patrols"]
     report.update(generated=dict(counts), height_sources=dict(heights), width_sources=dict(widths),
                   shared_road_vertices=len(model["road_shared_vertices"]), bounds_xz_m=bounds,
                   triangles=sum(len(m["vertices"]) // 3 for m in mesh_items))
+    meshes = {"source": provenance, "bounds_xz_m": bounds,
+              "projection": projection, "local_origin": model["local_origin"],
+              "world_scale": world_scale, "open_windows": open_windows,
+              "window_density": window_density, "window_limit": window_limit,
+              "window_every_n": window_every_n, "game_transform": game_transform,
+              "osm_rules": osm_rules, "items": mesh_items}
+    if open_windows:
+        meshes["apertures"] = aperture_options
+    if mesh_output is not None:
+        mesh_output(meshes)
+        return report
+    if progress is not None:
+        progress("write", 0, 0)
     output.mkdir(parents=True, exist_ok=True)
     if not overwrite and any(output.iterdir()):
         raise ValueError("Output directory must be new or empty; refusing to overwrite existing content")
-    payloads = {"spatial": model, "meshes": {"source": provenance, "bounds_xz_m": bounds,
-                 "projection": projection, "local_origin": model["local_origin"],
-                 "world_scale": world_scale, "open_windows": open_windows,
-                 "window_density": window_density,
-                 "window_limit": window_limit, "window_every_n": window_every_n,
-                 "game_transform": game_transform, "items": mesh_items}, "report": report}
+    payloads = {"spatial": model, "meshes": meshes, "report": report}
     for suffix, payload in payloads.items():
         (output / f"export_preview.{suffix}.json").write_text(json.dumps(payload, ensure_ascii=False, indent=2 if suffix != "meshes" else None, allow_nan=False) + "\n", encoding="utf-8")
-    if snapshot_source:
+    if snapshot_source or merge_report is not None:
         # Use exactly the bytes already parsed and hashed, even if the external
         # source changes while processing. No second read can diverge from provenance.
         (output / "source.geojson").write_bytes(raw)
@@ -525,10 +616,13 @@ def main():
     parser.add_argument("--window-density", choices=("limited", "auto", "full"), default="auto")
     parser.add_argument("--window-limit", type=int, default=6)
     parser.add_argument("--window-every-n", type=int, default=5)
+    parser.add_argument("--aperture-options", type=json.loads)
+    parser.add_argument("--osm-rules", type=parse_osm_rules)
     args = parser.parse_args()
     report = prepare(args.source, args.output, world_scale=args.world_scale, open_windows=args.open_windows,
                      window_density=args.window_density, window_limit=args.window_limit,
-                     window_every_n=args.window_every_n)
+                     window_every_n=args.window_every_n, osm_rules=args.osm_rules,
+                     aperture_options=args.aperture_options)
     print(json.dumps({k: v for k, v in report.items() if k not in ("source", "limitations")}, indent=2))
 
 

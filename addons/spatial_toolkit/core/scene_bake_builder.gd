@@ -2,7 +2,9 @@
 extends RefCounted
 ## Offline static batches. All work happens on a detached saved-scene instance.
 signal progress(message: String, fraction: float)
+const Localization := preload("res://addons/spatial_toolkit/ui/editor_localization.gd")
 const MATERIALS := preload("res://addons/spatial_toolkit/core/scene_bake_materials.gd")
+const Layers := preload("res://addons/spatial_toolkit/core/spatial_layers.gd")
 const LAYERS := ["Buildings", "Roads", "Paths", "PlannedRoads", "Landuse", "Water"]
 const GENERATOR := "spatial_toolkit.scene_bake.v1"
 var _host: Node
@@ -14,7 +16,8 @@ var _source_meshes: Array[MeshInstance3D]
 var _building_bounds := AABB()
 var _has_building_bounds := false
 
-func build(map: Node3D, chunk_size: float, merge_collisions: bool, host: Node, cancelled: Callable) -> Dictionary:
+func build(map: Node3D, chunk_size: float, merge_collisions: bool, host: Node, cancelled: Callable,
+		window_detail: bool = false) -> Dictionary:
 	_host = host
 	_cancelled = cancelled
 	_chunks = {}
@@ -26,26 +29,31 @@ func build(map: Node3D, chunk_size: float, merge_collisions: bool, host: Node, c
 		"grid_origin_m": [0, 0, 0], "feature_ownership": "whole feature by AABB center; no physical clipping",
 		"visual_ranges": [], "collision_ranges": [], "features": {}}
 	if map.has_meta("scene_bake") or map.get_node_or_null("BakedChunks") != null:
-		return _error("Сцена уже запечена; выберите исходную карту.")
+		return _error(Localization.translate("The scene is already baked. Select the source map."))
 	var generated := map.get_node_or_null("Generated") as Node3D
 	if generated == null or not generated.has_meta("source"):
-		return _error("Сцена не содержит исходную Generated-карту Spatial Toolkit.")
+		return _error(Localization.translate("The scene does not contain an original Spatial Toolkit Generated map."))
 	var validation := _collect(map, generated)
 	if not validation.is_empty():
 		return _error(validation)
 	if _source_meshes.is_empty():
-		return _error("В карте нет поддерживаемых сгенерированных мешей.")
+		return _error(Localization.translate("The map has no supported generated meshes."))
 	_manifest["source_metadata"] = _metadata(generated)
+	var world_features := {"roads": {}, "buildings": {}}
+	var window_transforms: Array[Transform3D] = []
+	var window_styles: Array[SpatialWindowStyle] = [null]
+	var window_style_indices := {}
+	var window_style_ids := PackedInt32Array()
 	var before := count_scene(map)
 	for index: int in _source_meshes.size():
 		if _cancelled.call():
-			return {"ok": false, "cancelled": true, "error": "Запекание отменено."}
+			return {"ok": false, "cancelled": true, "error": Localization.translate("Bake cancelled.")}
 		var mesh := _source_meshes[index]
 		var transform := _relative(mesh, map)
 		if absf(transform.basis.determinant()) < 0.00000001:
-			return _error("Вырожденный transform у " + str(mesh.name))
+			return _error(Localization.translate("Degenerate transform on %s") % str(mesh.name))
 		if transform.basis.determinant() < 0.0:
-			return _error("Зеркальный transform требует отдельного сохранения: " + str(mesh.name))
+			return _error(Localization.translate("A mirrored transform requires a separate save: %s") % str(mesh.name))
 		var bounds := transform * mesh.get_aabb()
 		var center := bounds.get_center()
 		var x := int(floor(center.x / chunk_size))
@@ -55,13 +63,45 @@ func build(map: Node3D, chunk_size: float, merge_collisions: bool, host: Node, c
 			_chunks[chunk_id] = {"origin": Vector3(x * chunk_size, 0, z * chunk_size), "groups": {}, "collision_groups": {}, "bodies": []}
 		var chunk: Dictionary = _chunks[chunk_id]
 		var identity := str(mesh.get_meta("source_id"))
+		var kind := Layers.root_kind(mesh)
+		if kind in ["Roads", "Paths", "PlannedRoads"]:
+			world_features["roads"][identity] = kind
+		elif kind == "Buildings":
+			var previous: Array = world_features["buildings"].get(identity, [])
+			var combined := bounds
+			if previous.size() == 6:
+				combined = combined.merge(AABB(Vector3(previous[0], previous[1], previous[2]),
+					Vector3(previous[3] - previous[0], previous[4] - previous[1], previous[5] - previous[2])))
+			world_features["buildings"][identity] = [combined.position.x, combined.position.y,
+				combined.position.z, combined.end.x, combined.end.y, combined.end.z]
 		var source_path := str(map.get_path_to(mesh))
 		_manifest["features"][source_path] = {"source_id": identity, "chunk_id": chunk_id, "metadata": _metadata(mesh)}
-		if str(mesh.get_parent().name) == "Buildings":
+		var window_base := -1
+		if window_detail and kind == "Buildings" and _flags(mesh, map)["visible"] and _has_window_atlas(mesh):
+			var prepared_windows := _window_transforms(mesh, transform)
+			if not prepared_windows.is_empty():
+				var style := Layers.effective(mesh).get("window_style") as SpatialWindowStyle
+				var style_id := 0
+				if style != null:
+					if not window_style_indices.has(style):
+						var invalid := style.validation_error()
+						if not invalid.is_empty():
+							return _error(Localization.translate("Invalid window style on %s. %s") % [source_path, invalid])
+						window_style_indices[style] = window_styles.size()
+						window_styles.append(style)
+					style_id = window_style_indices[style]
+				window_base = window_transforms.size()
+				window_transforms.append_array(prepared_windows)
+				if window_styles.size() > 1:
+					window_style_ids.resize(window_transforms.size())
+					for id in range(window_base, window_transforms.size()):
+						window_style_ids[id] = style_id
+		if Layers.root_kind(mesh) == "Buildings":
 			_building_bounds = _building_bounds.merge(bounds) if _has_building_bounds else bounds
 			_has_building_bounds = true
 		for surface: int in mesh.mesh.get_surface_count():
-			var prepared: Dictionary = _materials.prepare(mesh.get_active_material(surface))
+			var prepared: Dictionary = _materials.prepare(mesh.get_active_material(surface), window_base)
+			var section_coordinates: bool = prepared["section_coordinates"]
 			var flags := _flags(mesh, map)
 			var key := str(prepared["key"]) + "|" + var_to_str(flags)
 			var groups: Dictionary = chunk["groups"]
@@ -70,6 +110,9 @@ func build(map: Node3D, chunk_size: float, merge_collisions: bool, host: Node, c
 				tool.begin(Mesh.PRIMITIVE_TRIANGLES)
 				tool.set_material(prepared["material"])
 				tool.set_custom_format(0, SurfaceTool.CUSTOM_RGBA_FLOAT)
+				if section_coordinates:
+					tool.set_custom_format(1, SurfaceTool.CUSTOM_RGB_FLOAT)
+					tool.set_custom_format(2, SurfaceTool.CUSTOM_RGB_FLOAT)
 				groups[key] = {"tool": tool, "triangles": 0, "flags": flags, "ranges": [], "material": prepared["material"]}
 			var group: Dictionary = groups[key]
 			var arrays := mesh.mesh.surface_get_arrays(surface)
@@ -81,12 +124,12 @@ func build(map: Node3D, chunk_size: float, merge_collisions: bool, host: Node, c
 			var colors: PackedColorArray = arrays[Mesh.ARRAY_COLOR] if arrays[Mesh.ARRAY_COLOR] != null else PackedColorArray()
 			var count := indices.size() if not indices.is_empty() else vertices.size()
 			if count % 3 != 0 or normals.size() != vertices.size():
-				return _error("Нужны треугольники с нормалями: " + source_path)
+				return _error(Localization.translate("Triangles with normals are required: %s") % source_path)
 			for custom_index: int in range(Mesh.ARRAY_CUSTOM0, Mesh.ARRAY_CUSTOM3 + 1):
 				if arrays[custom_index] != null and arrays[custom_index].size() > 0:
-					return _error("Пользовательские vertex-атрибуты уже заняты: " + source_path)
+					return _error(Localization.translate("Custom vertex attributes are already in use: %s") % source_path)
 			if arrays[Mesh.ARRAY_BONES] != null and arrays[Mesh.ARRAY_BONES].size() > 0:
-				return _error("Скелетные меши не запекаются: " + source_path)
+				return _error(Localization.translate("Skinned meshes cannot be baked: %s") % source_path)
 			var tangents: PackedFloat32Array = arrays[Mesh.ARRAY_TANGENT] if arrays[Mesh.ARRAY_TANGENT] != null else PackedFloat32Array()
 			var first_triangle := int(group["triangles"])
 			var normal_transform := transform.basis.inverse().transposed()
@@ -107,11 +150,17 @@ func build(map: Node3D, chunk_size: float, merge_collisions: bool, host: Node, c
 				tool.set_uv2(uv2s[vertex_index] if not uv2s.is_empty() else Vector2.ZERO)
 				tool.set_color(colors[vertex_index] if not colors.is_empty() else Color.WHITE)
 				tool.set_custom(0, prepared["custom"] if prepared["facade"] else Color(0, 0, 0, 0))
+				if section_coordinates:
+					# The atlas addresses the original mesh, before chunk transforms.
+					var local_vertex := vertices[vertex_index]
+					var local_normal := normals[vertex_index]
+					tool.set_custom(1, Color(local_vertex.x, local_vertex.y, local_vertex.z))
+					tool.set_custom(2, Color(local_normal.x, local_normal.y, local_normal.z))
 				tool.add_vertex(transform * vertices[vertex_index] - origin)
 				if (corner + 1) % 12288 == 0:
 					await _host.get_tree().process_frame
 					if _cancelled.call():
-						return {"ok": false, "cancelled": true, "error": "Запекание отменено."}
+						return {"ok": false, "cancelled": true, "error": Localization.translate("Bake cancelled.")}
 			group["triangles"] = first_triangle + count / 3
 			var record := {"source_id": identity, "source_node": source_path, "source_surface": surface,
 				"chunk_id": chunk_id, "surface": 0, "triangle_start": first_triangle, "triangle_count": count / 3}
@@ -136,7 +185,7 @@ func build(map: Node3D, chunk_size: float, merge_collisions: bool, host: Node, c
 				var collision_group: Dictionary = collision_groups[collision_key]
 				var shape_transform := _relative(shape, map)
 				if shape_transform.basis.determinant() <= 0.00000001:
-					return _error("Зеркальный/вырожденный transform коллизии: " + source_path)
+					return _error(Localization.translate("Mirrored or degenerate collision transform: %s") % source_path)
 				var source_faces := source_shape.get_faces()
 				var target_faces: PackedVector3Array = collision_group["faces"]
 				var first := target_faces.size() / 3
@@ -146,7 +195,8 @@ func build(map: Node3D, chunk_size: float, merge_collisions: bool, host: Node, c
 				collision_group["ranges"].append({"source_id": identity, "source_node": source_path,
 					"chunk_id": chunk_id, "triangle_start": first, "triangle_count": source_faces.size() / 3})
 		if (index + 1) % 16 == 0:
-			progress.emit("Объединение объектов %d/%d…" % [index + 1, _source_meshes.size()], 0.08 + 0.62 * float(index + 1) / _source_meshes.size())
+			progress.emit(Localization.translate("Combining features %d/%d…") % [index + 1, _source_meshes.size()],
+				0.08 + 0.62 * float(index + 1) / _source_meshes.size())
 			await _host.get_tree().process_frame
 	var container := Node3D.new()
 	container.name = "BakedChunks"
@@ -157,7 +207,7 @@ func build(map: Node3D, chunk_size: float, merge_collisions: bool, host: Node, c
 	chunk_keys.sort()
 	for chunk_id: String in chunk_keys:
 		if _cancelled.call():
-			return {"ok": false, "cancelled": true, "error": "Запекание отменено."}
+			return {"ok": false, "cancelled": true, "error": Localization.translate("Bake cancelled.")}
 		var chunk: Dictionary = _chunks[chunk_id]
 		var chunk_node := Node3D.new()
 		chunk_node.name = chunk_id
@@ -176,7 +226,7 @@ func build(map: Node3D, chunk_size: float, merge_collisions: bool, host: Node, c
 			instance.name = "Mesh_%03d" % group_index
 			instance.mesh = tool.commit()
 			if instance.mesh == null:
-				return _error("Не удалось собрать меш " + chunk_id)
+				return _error(Localization.translate("Could not build mesh %s") % chunk_id)
 			for property: String in group["flags"]:
 				instance.set(property, group["flags"][property])
 			instance.set_meta("generated_by", GENERATOR)
@@ -222,6 +272,11 @@ func build(map: Node3D, chunk_size: float, merge_collisions: bool, host: Node, c
 	for instance: MeshInstance3D in _source_meshes:
 		instance.get_parent().remove_child(instance)
 		instance.free()
+	if map.has_meta("assembly_source_world"):
+		for layer_name: String in LAYERS:
+			var layer := generated.get_node_or_null(layer_name)
+			if layer is SpatialLayer3D and _contains_only_layer_groups(layer):
+				layer.free()
 	if _has_building_bounds:
 		map.set_meta("baked_building_bounds_m", [_building_bounds.position.x, _building_bounds.position.y, _building_bounds.position.z,
 			_building_bounds.size.x, _building_bounds.size.y, _building_bounds.size.z])
@@ -233,34 +288,80 @@ func build(map: Node3D, chunk_size: float, merge_collisions: bool, host: Node, c
 		"surface_draws_estimate_after": after["surfaces"], "fps_measured": false,
 		"limits": ["No HLOD, streaming, lightmap or occlusion bake", "Large features retain one owner chunk and may extend beyond its grid cell", "Global FlatGround retained separately for horizon/overview", "Physics/material/geometry metrics are structural, not measured frame-time claims"]}
 	_manifest["metrics"] = report
-	return {"ok": true, "report": report, "manifest": _manifest}
+	return {"ok": true, "report": report, "manifest": _manifest, "world_features": world_features,
+		"window_transforms": window_transforms, "window_styles": window_styles, "window_style_ids": window_style_ids}
+
+func _has_window_atlas(mesh: MeshInstance3D) -> bool:
+	for surface in mesh.mesh.get_surface_count():
+		var material := mesh.get_active_material(surface) as ShaderMaterial
+		if material != null and material.shader != null and material.shader.resource_path == MATERIALS.FACADE \
+				and material.get_shader_parameter("section_windows") == true \
+				and int(material.get_shader_parameter("section_wall_count")) > 0 \
+				and int(material.get_shader_parameter("section_light_offset")) >= 0 \
+				and material.get_shader_parameter("hide_decorative_windows") != true:
+			return true
+	return false
+
+func _window_transforms(mesh: MeshInstance3D, transform: Transform3D) -> Array[Transform3D]:
+	var result: Array[Transform3D] = []
+	var layout: Dictionary = mesh.get_meta("facade_window_layout", {})
+	var width := float(layout.get("width_m", 0.0))
+	var height := float(layout.get("height_m", 0.0))
+	if width <= 0.0 or height <= 0.0 or not layout.get("walls") is Array:
+		return result
+	var scale_factor := float(mesh.get_meta("world_scale", 1.0))
+	for wall: Dictionary in layout["walls"]:
+		var normal_values: Array = wall.get("normal", [])
+		if normal_values.size() != 3:
+			return []
+		var normal := Vector3(normal_values[0], normal_values[1], normal_values[2]).normalized()
+		if not normal.is_finite() or absf(normal.dot(Vector3.UP)) > 0.001 or normal.is_zero_approx():
+			return []
+		var basis := Basis(Vector3.UP.cross(normal) * width, Vector3.UP * height, normal * 0.09 * scale_factor)
+		for window: Dictionary in wall.get("windows", []):
+			var coordinates: Array = window.get("center", [])
+			if coordinates.size() != 3:
+				return []
+			var center := Vector3(coordinates[0], coordinates[1], coordinates[2])
+			if not center.is_finite():
+				return []
+			result.append(transform * Transform3D(basis, center - normal * 0.10 * scale_factor))
+	return result
+
+func _contains_only_layer_groups(node: Node) -> bool:
+	for child in node.get_children():
+		if not child is SpatialLayer3D or not _contains_only_layer_groups(child):
+			return false
+	return true
 
 func _collect(map: Node3D, generated: Node3D) -> String:
 	for layer_name: String in LAYERS:
 		var layer := generated.get_node_or_null(layer_name)
 		if layer == null:
 			continue
-		for value in layer.get_children():
-			if not value is MeshInstance3D:
-				continue # unrelated user nodes remain in the copied source hierarchy
-			var mesh := value as MeshInstance3D
+		for mesh in Layers.meshes(layer):
 			if not mesh.has_meta("source_id"):
 				continue
 			if mesh.mesh == null or mesh.get_script() != null or not mesh.skeleton.is_empty() or mesh.mesh.get_blend_shape_count() != 0:
-				return "Неподдерживаемый динамический/пустой меш: " + str(mesh.name)
+				return Localization.translate("Unsupported dynamic or empty mesh: %s") % str(mesh.name)
+			var ancestor: Node = mesh
+			while ancestor != map:
+				if ancestor is Node3D and ancestor.top_level:
+					return Localization.translate("The source node's top_level setting is unsupported: %s") % str(map.get_path_to(ancestor))
+				ancestor = ancestor.get_parent()
 			if mesh.material_overlay != null or not mesh.visibility_parent.is_empty() or mesh.custom_aabb != AABB():
-				return "Особые визуальные свойства требуют отдельного сохранения: " + str(mesh.name)
+				return Localization.translate("Special visual properties require a separate save: %s") % str(mesh.name)
 			for surface: int in mesh.mesh.get_surface_count():
 				if mesh.mesh.surface_get_primitive_type(surface) != Mesh.PRIMITIVE_TRIANGLES:
-					return "Меш должен состоять из треугольников: " + str(mesh.name)
+					return Localization.translate("The mesh must consist of triangles: %s") % str(mesh.name)
 			for child in mesh.get_children():
 				if not child is StaticBody3D or child.get_script() != null or not str(child.get_meta("generated_by", "")).begins_with("spatial_toolkit."):
-					return "Пользовательские дочерние узлы требуют отдельного сохранения: " + str(mesh.name)
+					return Localization.translate("Custom child nodes require a separate save: %s") % str(mesh.name)
 				if child.physics_material_override != null or child.constant_linear_velocity != Vector3.ZERO or child.constant_angular_velocity != Vector3.ZERO:
-					return "Особые физические свойства требуют отдельного сохранения: " + str(mesh.name)
+					return Localization.translate("Special physics properties require a separate save: %s") % str(mesh.name)
 				for shape in child.get_children():
 					if not shape is CollisionShape3D or not shape.shape is ConcavePolygonShape3D or shape.disabled:
-						return "Неподдерживаемая/отключённая коллизия: " + str(mesh.name)
+						return Localization.translate("Unsupported or disabled collision: %s") % str(mesh.name)
 			_source_meshes.append(mesh)
 	return ""
 

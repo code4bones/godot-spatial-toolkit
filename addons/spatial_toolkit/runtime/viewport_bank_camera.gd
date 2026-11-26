@@ -1,3 +1,4 @@
+@tool
 extends "res://addons/spatial_toolkit/runtime/drone_camera.gd"
 ## Experimental keyboard steering with a square camera framing zone.
 

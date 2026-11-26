@@ -11,10 +11,12 @@ const MAX_PER_BUILDING := 2
 const INDUSTRIAL_TYPES := ["industrial", "warehouse", "factory"]
 
 
-static func build(map: Node3D, features: Array, world_scale: float) -> Array[Dictionary]:
+static func build(map: Node3D, features: Array, world_scale: float, mount_height_m := MOUNT_HEIGHT_M,
+		minimum_gap_m := MIN_MOUNT_SPACING_M, max_per_building := MAX_PER_BUILDING,
+		fixture_scale := 1.0) -> Array[Dictionary]:
 	var placements: Array[Dictionary] = []
 	var windows := map.get_node_or_null("StyleLayer/ModularWindows")
-	if windows == null or world_scale <= 0.0:
+	if windows == null or world_scale <= 0.0 or max_per_building <= 0:
 		return placements
 	var entries: Array = windows.get("_entries")
 	var buildings := {}
@@ -49,7 +51,7 @@ static func build(map: Node3D, features: Array, world_scale: float) -> Array[Dic
 	for source_id: String in source_ids:
 		var source: Dictionary = sources[source_id]
 		var polygons := _polygons(source["geometry"])
-		var axis: Vector2 = windows.call("_long_facade_axis", polygons)
+		var axis := WindowLayout.long_facade_axis(polygons)
 		var tags: Dictionary = source["source"].get("tags", {})
 		var building_type := str(tags.get("building", ""))
 		if building_type in ["roof", "carport"]:
@@ -60,7 +62,8 @@ static func build(map: Node3D, features: Array, world_scale: float) -> Array[Dic
 		if not industrial and axis == Vector2.ZERO:
 			continue
 		placements.append_array(_place_on_building(source_id, buildings[source_id], polygons,
-			footprints, axis, industrial, world_scale))
+			footprints, axis, industrial, world_scale, mount_height_m, minimum_gap_m, max_per_building,
+			MOUNT_HALF_SIZE_M * fixture_scale))
 	return placements
 
 
@@ -75,7 +78,9 @@ static func _polygons(geometry: Dictionary) -> Array:
 
 
 static func _place_on_building(source_id: String, entry: Dictionary, polygons: Array,
-		footprints: Array[Dictionary], axis: Vector2, industrial: bool, world_scale: float) -> Array[Dictionary]:
+		footprints: Array[Dictionary], axis: Vector2, industrial: bool, world_scale: float,
+		mount_height_m: float, minimum_gap_m: float, max_per_building: int,
+		mount_half_size_m: Vector2) -> Array[Dictionary]:
 	var placements: Array[Dictionary] = []
 	var candidates: Array[Dictionary] = []
 	for polygon: Array in polygons:
@@ -111,17 +116,17 @@ static func _place_on_building(source_id: String, entry: Dictionary, polygons: A
 		var length_m: float = candidate["length"]
 		var faces := WindowAtlas._wall_triangles(triangles, candidate["start"],
 			candidate["tangent"], candidate["normal"], length_m)
-		if not WindowAtlas._supports_window(faces, Vector2(length_m * 0.5, MOUNT_HEIGHT_M), MOUNT_HALF_SIZE_M):
+		if not WindowAtlas._supports_window(faces, Vector2(length_m * 0.5, mount_height_m), mount_half_size_m):
 			continue
 		var point: Vector2 = candidate["point"]
 		var normal: Vector2 = candidate["normal"]
-		var position := Vector3(point.x, MOUNT_HEIGHT_M, point.y)
+		var position := Vector3(point.x, mount_height_m, point.y)
 		if placements.any(func(mount: Dictionary) -> bool:
-			return position.distance_to(mount["position"]) < MIN_MOUNT_SPACING_M):
+			return position.distance_to(mount["position"]) < minimum_gap_m):
 			continue
 		placements.append({"position": position, "normal": Vector3(normal.x, 0.0, normal.y),
 			"source_id": source_id})
-		if placements.size() >= MAX_PER_BUILDING:
+		if placements.size() >= max_per_building:
 			break
 	return placements
 

@@ -3,10 +3,11 @@ extends RefCounted
 ## Material identity and optional facade values carried by float vertex attributes.
 const FLAT := "res://addons/spatial_toolkit/materials/flat_map_surface.gdshader"
 const FACADE := "res://addons/spatial_toolkit/materials/building_facade.gdshader"
+const LAYER_ORIGINAL := &"spatial_layer_original_material"
 var materials: Dictionary = {}
 
-func prepare(material: Material) -> Dictionary:
-	var result := {"material": material, "facade": false}
+func prepare(material: Material, window_base: int = -1) -> Dictionary:
+	var result := {"material": material, "facade": false, "section_coordinates": false}
 	if material is ShaderMaterial and material.shader != null and material.shader.resource_path == FACADE:
 		var original := material as ShaderMaterial
 		var wall: Variant = original.get_shader_parameter("wall_color")
@@ -16,6 +17,8 @@ func prepare(material: Material) -> Dictionary:
 		# is a float attribute, so encode that conversion explicitly (no RGBA8 loss).
 		var linear: Color = wall.srgb_to_linear()
 		result["facade"] = true
+		result["section_coordinates"] = bool(_parameter(original, "section_windows", false)) \
+			and int(_parameter(original, "section_wall_count", 0)) > 0
 		result["custom"] = Color(linear.r, linear.g, linear.b, float(_parameter(original, "facade_style", 0)))
 		result["uv"] = Vector2(float(_parameter(original, "building_seed", 0)), float(_parameter(original, "floor_height", 3)))
 		var shared := original.duplicate() as ShaderMaterial
@@ -24,6 +27,9 @@ func prepare(material: Material) -> Dictionary:
 		shared.set_shader_parameter("building_seed", 0.0)
 		shared.set_shader_parameter("floor_height", 3.0)
 		shared.set_shader_parameter("facade_style", 0)
+		if window_base >= 0 and result["section_coordinates"]:
+			shared.set_shader_parameter("baked_window_base", window_base)
+			shared.resource_local_to_scene = true
 		material = shared
 	elif material is ShaderMaterial and material.shader != null and material.shader.resource_path == FLAT:
 		var original := material as ShaderMaterial
@@ -38,6 +44,10 @@ func prepare(material: Material) -> Dictionary:
 		shared.set_shader_parameter("baked_vertex_color", true)
 		shared.set_shader_parameter("surface_color", Color.WHITE)
 		material = shared
+	if material != null and material.has_meta(LAYER_ORIGINAL):
+		if not result["facade"]:
+			material = material.duplicate() as Material
+		material.remove_meta(LAYER_ORIGINAL)
 	var key := _resource_key(material)
 	if not materials.has(key):
 		materials[key] = material
@@ -59,6 +69,13 @@ func _resource_key(value: Variant, depth: int = 0) -> String:
 		return resource.get_class() + ":" + resource.resource_path
 	if resource is Shader:
 		return "Shader:" + resource.code.sha256_text()
+	if resource is ImageTexture and resource.resource_path.is_empty():
+		var image := (resource as ImageTexture).get_image()
+		if image != null and not image.is_empty():
+			var digest := HashingContext.new()
+			digest.start(HashingContext.HASH_SHA256)
+			digest.update(image.get_data())
+			return "ImageTexture:%s:%d:%s" % [image.get_size(), image.get_format(), digest.finish().hex_encode()]
 	if resource is Texture2D or resource is Texture3D or resource is TextureLayered:
 		return resource.get_class() + ":" + resource.resource_path
 	var properties: Array[String] = []

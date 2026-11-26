@@ -7,6 +7,10 @@ const VIEW_RANGE_M := 150.0
 const RING_SPACING_M := 4.0
 const OFFSCREEN_GRACE_S := 0.55
 
+var speed_mps := SPEED_M
+var ring_spacing_m := RING_SPACING_M
+var emission := 1.4
+
 var _routes: Array[Dictionary]
 var _connections: Dictionary
 var _occupied: Dictionary
@@ -38,7 +42,7 @@ func setup(routes: Array[Dictionary], connections: Dictionary, occupied: Diction
 	ring.ring_segments = 12
 	_material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	_material.emission_enabled = true
-	_material.emission_energy_multiplier = 1.4
+	_material.emission_energy_multiplier = emission
 	ring.material = _material
 	for index in 3:
 		var instance := MeshInstance3D.new()
@@ -139,8 +143,8 @@ func _continuation(end: Vector2, heading: Vector3, visited: Dictionary) -> int:
 	return chosen
 
 func _process(delta: float) -> void:
-	_distance += SPEED_M * delta
-	if _distance > _distances[-1] + RING_SPACING_M * (_rings.size() - 1):
+	_distance += speed_mps * delta
+	if _distance > _distances[-1] + ring_spacing_m * (_rings.size() - 1):
 		_finish()
 		return
 	var camera := get_viewport().get_camera_3d()
@@ -171,7 +175,7 @@ func _in_frame(camera: Camera3D, point: Vector3) -> bool:
 func _update_rings() -> void:
 	for index in _rings.size():
 		var ring := _rings[index]
-		var distance := _distance - RING_SPACING_M * index
+		var distance := _distance - ring_spacing_m * index
 		ring.visible = distance >= _start and distance <= _distances[-1]
 		if not ring.visible:
 			continue
