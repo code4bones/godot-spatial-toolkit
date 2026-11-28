@@ -18,6 +18,7 @@ const TargetLock := preload("res://addons/spatial_toolkit/runtime/drone_target_l
 const StagedTargetLock := preload("res://addons/spatial_toolkit/runtime/drone_staged_target_lock.gd")
 const TargetLockHud := preload("res://addons/spatial_toolkit/runtime/drone_target_lock_hud.gd")
 const ThreatHud := preload("res://addons/spatial_toolkit/runtime/drone_threat_hud.gd")
+const SpiderPlayer := preload("res://addons/spatial_toolkit/runtime/spider_player.gd")
 const GAMEPAD_TRIGGER_RELEASE := 0.30
 const SHOT_DELAY_SECONDS := 0.2
 const TARGET_CONFIRM_ACTION := &"flight_target_confirm"
@@ -161,6 +162,9 @@ var _authored_camera_pitch := 0.0
 var _gamepad_device := -1
 var _gamepad_aim_active := false
 var _gamepad_trigger_down := false
+var _spider_player: SpiderPlayer
+var _spider_toggle_requested := false
+var _resume_flight_after_spider := false
 
 func _validate_property(property: Dictionary) -> void:
 	Localization.localize_inspector_group(property)
@@ -269,6 +273,9 @@ func _physics_process(delta: float) -> void:
 func _flight_controls_ready(delta: float) -> bool:
 	if Engine.is_editor_hint():
 		return false
+	if _spider_toggle_requested:
+		_spider_toggle_requested = false
+		_toggle_spider()
 	_update_near_plane()
 	if _respawn_remaining > 0.0:
 		_clear_target_lock()
@@ -283,6 +290,28 @@ func _flight_controls_ready(delta: float) -> bool:
 		return false
 	_update_delayed_shots(delta)
 	return true
+
+func _toggle_spider() -> void:
+	if is_instance_valid(_spider_player) and _spider_player.active:
+		_spider_player.deactivate()
+		make_current()
+		if _resume_flight_after_spider:
+			_capture_mouse()
+		return
+	if not current or _body == null or _respawn_remaining > 0.0:
+		return
+	if not is_instance_valid(_spider_player):
+		_spider_player = SpiderPlayer.new()
+		_spider_player.name = "SpiderPlayer"
+		_spider_player.collision_mask = _body.collision_mask
+		add_child(_spider_player)
+	_spider_player.view.far = far
+	if _spider_player.activate_below(_body.global_position, _forward()):
+		_resume_flight_after_spider = _flight_active
+		_release_mouse()
+		_spider_player.capture_controls()
+	else:
+		push_warning("Spider mode could not find room on a static surface below the drone.")
 
 func _install_flight_ground() -> void:
 	var overview := get_node_or_null(overview_camera_path)
@@ -1080,6 +1109,13 @@ func _pointer_motion(event: InputEventMouseMotion) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if Engine.is_editor_hint() or event is InputEventJoypadButton or event is InputEventJoypadMotion:
+		return
+	var spider_active := is_instance_valid(_spider_player) and _spider_player.active
+	if (current or spider_active) and FlightInput.event_pressed(event, &"spider_toggle"):
+		_spider_toggle_requested = not _spider_toggle_requested
+		get_viewport().set_input_as_handled()
+		return
+	if spider_active:
 		return
 	if FlightInput.event_pressed(event, &"flight_toggle_overview"):
 		_toggle_overview()

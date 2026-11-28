@@ -15,7 +15,9 @@ from .building_overlap import coincident_buildings, coincident_walls
 from .clearance_geometry import ClearanceGeometry
 from .merge import merge_whole_osm, validate_declared_crs
 from .osm_rules import DEFAULT_OSM_RULES, DEFAULT_WIDTHS, normalize_osm_rules, parse_osm_rules
-from .preview_geometry import FOUNDATION_BOTTOM, FOUNDATION_RENDER_TOP, Geometry, GeometryError, building_mesh, surface
+from .preview_geometry import (
+    FLAT_GROUND_Y, FOUNDATION_BOTTOM, FOUNDATION_RENDER_TOP, Geometry, GeometryError, building_mesh, surface,
+)
 from .facade_geometry import (
     MAX_MAP_OPENINGS, FacadeBudgetError, building_with_openings, choose_grid_stride,
     count_plan_at_stride, normalize_aperture_options, plan_facade, plan_limited_facade,
@@ -483,12 +485,10 @@ def prepare(source, output, default_height=3.0, level_height=3.0, overwrite=True
                         style = "building_" + item["height_source"]
                     else:
                         v, n = [], []
-                        # Large industrial/residential polygons form the background;
-                        # grass sits above these, roads sit above all landuse.
+                        # The Godot materials order coplanar overlays by layer.
                         landuse = tags.get("landuse", "grass")
-                        y = 0.04 if kind == "water" else 0.025 if landuse == "grass" else 0.01
                         for rings in polygons:
-                            pv, pn = surface(geometry.polygon(rings), y)
+                            pv, pn = surface(geometry.polygon(rings), FLAT_GROUND_Y)
                             v.extend(pv); n.extend(pn)
                         style = "water" if kind == "water" else "land_" + landuse
                 else:
@@ -501,7 +501,7 @@ def prepare(source, output, default_height=3.0, level_height=3.0, overwrite=True
                     path = tags["highway"] in ("footway", "path", "steps", "cycleway")
                     item["status"] = status
                     style = "road_" + (status if status != "existing" else "path" if path else "existing")
-                    v, n = surface(geometry.road(coord, width), 0.10 if path else 0.08 if status == "existing" else 0.13)
+                    v, n = surface(geometry.road(coord, width), FLAT_GROUND_Y)
                 if not v:
                     raise GeometryError("Empty mesh")
             except GeometryError as exc:
@@ -527,7 +527,7 @@ def prepare(source, output, default_height=3.0, level_height=3.0, overwrite=True
             if not all(math.isfinite(value) for value in game_dimensions.values()):
                 raise ValueError(f"Scaled gameplay dimensions are non-finite for feature {fid}")
             # Apply one final transform to all geometry, including road buffers,
-            # facade openings, reveals and flat-layer offsets. Source model and
+            # facade openings, reveals and the flat reference plane. Source model and
             # resolved source dimensions above are deliberately never rewritten.
             if world_scale != 1.0:
                 v = [[component * world_scale for component in vertex] for vertex in v]

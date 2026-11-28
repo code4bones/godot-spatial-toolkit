@@ -2,6 +2,7 @@ extends Node3D
 ## Shares the projected road topology across individually saved robot instances.
 
 const ROBOT := preload("res://addons/spatial_toolkit/runtime/patrol_robot.tscn")
+const FlatMapPlane := preload("res://addons/spatial_toolkit/core/flat_map_plane.gd")
 const MODEL_FILE := "export_preview.spatial.json"
 const ROBOT_COUNT := 6
 const DRIVABLE := ["motorway", "trunk", "primary", "secondary", "tertiary",
@@ -22,6 +23,8 @@ static func add_from_file(map: Node3D, path: String, save_nodes: bool) -> int:
 		push_warning("Spatial Toolkit: invalid road model at " + path)
 		return 0
 	var scale_m := float(map.get_meta("world_scale", 1.0))
+	var ground_y := FlatMapPlane.ground_height(map)
+	var road_y := (ground_y if is_finite(ground_y) else FlatMapPlane.SOURCE_Y * scale_m) + 0.025
 	var vertices := PackedVector3Array()
 	var links := PackedInt32Array()
 	var source_ids := PackedStringArray()
@@ -49,7 +52,7 @@ static func add_from_file(map: Node3D, path: String, save_nodes: bool) -> int:
 					snappedf(float(coordinate[1]), 0.00001))
 				if not by_point.has(point):
 					by_point[point] = vertices.size()
-					vertices.append(Vector3(point.x * scale_m, 0.08 * scale_m + 0.025, point.y * scale_m))
+					vertices.append(Vector3(point.x * scale_m, road_y, point.y * scale_m))
 				var current: int = by_point[point]
 				if previous >= 0 and current != previous:
 					var link := Vector2i(mini(previous, current), maxi(previous, current))

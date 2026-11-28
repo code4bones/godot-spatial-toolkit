@@ -39,6 +39,7 @@ const DEFAULT_BINDINGS := {
 	&"flight_toggle_controls": [[Binding.JOY_BUTTON, JOY_BUTTON_START]],
 	&"flight_release_controls": [[Binding.KEY, KEY_ESCAPE]],
 	&"flight_toggle_view": [[Binding.KEY, KEY_V], [Binding.JOY_BUTTON, JOY_BUTTON_Y]],
+	&"spider_toggle": [[Binding.KEY, KEY_SLASH], [Binding.PHYSICAL_KEY, KEY_SLASH]],
 	&"flight_toggle_overview": [[Binding.KEY, KEY_TAB], [Binding.JOY_BUTTON, JOY_BUTTON_BACK]],
 	&"flight_center_aim": [[Binding.JOY_BUTTON, JOY_BUTTON_RIGHT_STICK]],
 	&"flight_free_ascend": [[Binding.PHYSICAL_KEY, KEY_SPACE]],

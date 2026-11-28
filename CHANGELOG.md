@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-11-28
+
+- Switch the spider between first and third person with V or Triangle. Third person follows an animated demo robot along facades and roofs and retracts the camera at obstacles.
+- Align generated roads, paths, water and land use with the flat ground while retaining their material draw order. Existing generated scenes correct the former height offsets at runtime.
+- Switch between the drone and first-person spider movement with `/`. Walk onto facades, move around exterior corners and cross roofs using static map collisions.
+- Document how to attach a custom character model and drive surface traversal in a consuming project.
+
 ## [0.10.1] - 2026-11-28
 
 - Document how agents can inspect maps with Godot MCP and build gameplay from the saved world data.

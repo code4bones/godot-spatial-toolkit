@@ -2,7 +2,7 @@
 
 [Русская версия](./README.ru.md)
 
-Spatial Toolkit **v0.10.1** is a Godot 4 editor addon for turning GeoJSON and OpenStreetMap data into editable worlds and playable 3D maps. It has been tested with Godot 4.7.2 and 4.6.3.
+Spatial Toolkit **v0.11.0** is a Godot 4 editor addon for turning GeoJSON and OpenStreetMap data into editable worlds and playable 3D maps. It has been tested with Godot 4.7.2 and 4.6.3.
 
 ## Install
 
@@ -15,6 +15,10 @@ Local GeoJSON import works offline. Map Explorer uses online tile and Overpass s
 Choose Helsinki, Munich, Montréal, Zürich or Lyon in Map Explorer for CityGML buildings. Confirm the download when a preset is missing from your cache. **3D data → Download 3D archive** retries the download and **Open dataset catalog** opens the provider page. Archives are stored under `user://spatial_toolkit/citygml/`. Fetch and send the OSM buildings layer for the selected area before creating the world.
 
 **Project Settings → General → Spatial Toolkit → Flight** sets the controller and inversion defaults for new drones. The addon registers the flight actions in **Input Map** when enabled. Inspect saved rigs under **FlyPlayer → Drone Controls**.
+
+To update an existing project, close Godot, copy the complete `addons/spatial_toolkit` folder from this version, and reopen the project. Keep your game's own scenes and project settings.
+
+In a baked scene with **Add drone**, press **F6**, then **`/`** to walk and climb. **V** or **Triangle** on DualShock 4 switches between first and third person. See the [custom character example](./addons/spatial_toolkit/AGENT_GUIDE.md#своя-модель-с-готовым-управлением) for attaching your model and driving traversal from your own gameplay script.
 
 ## From selected areas to a playable map
 

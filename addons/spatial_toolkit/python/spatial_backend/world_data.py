@@ -15,12 +15,12 @@ import tempfile
 
 from .merge import OSM_ID
 from .preview import _read_geojson, _with_progress, validate_geometry
+from .preview_geometry import FLAT_GROUND_Y
 from .world_chunks import _number, _previous_manifest
 
 
 ROAD_KINDS = {"Roads", "Paths", "PlannedRoads"}
 CITYGML_ID = re.compile(r"citygml/[A-Za-z0-9_.:-]+")
-ROAD_Y = {"Roads": 0.08, "Paths": 0.10, "PlannedRoads": 0.13}
 DRIVABLE = {
     "motorway", "trunk", "primary", "secondary", "tertiary", "motorway_link",
     "trunk_link", "primary_link", "secondary_link", "tertiary_link", "unclassified",
@@ -147,7 +147,7 @@ def write_world_data(world, bake_features, output, *, progress=None):
             if geometry["type"] != "LineString":
                 raise ValueError("Selected road must be a LineString: " + identity)
             kind = selection["roads"][identity]
-            points = [[point[0], ROAD_Y[kind] * scale, point[1]] for point in map(project, geometry["coordinates"])]
+            points = [[point[0], FLAT_GROUND_Y * scale, point[1]] for point in map(project, geometry["coordinates"])]
             roads[identity] = {"kind": kind, "tags": tags, "points": points}
         if identity in selection["buildings"]:
             if geometry["type"] not in ("Polygon", "MultiPolygon"):

@@ -10,6 +10,7 @@ const Layers := preload("res://addons/spatial_toolkit/core/spatial_layers.gd")
 const Flight := preload("res://addons/spatial_toolkit/core/map_flight_module.gd")
 const Night := preload("res://addons/spatial_toolkit/runtime/night_city_style.gd")
 const MapStyle := preload("res://addons/spatial_toolkit/core/map_style_module.gd")
+const FlatMapPlane := preload("res://addons/spatial_toolkit/core/flat_map_plane.gd")
 const SOURCE_CHILDREN := ["Generated", "FlatGround", "PreviewSun", "PreviewEnvironment", "OverviewCamera", "PreviewLegend"]
 const VIEW_CHILDREN := ["PreviewSun", "PreviewEnvironment", "OverviewCamera", "PreviewLegend"]
 const WINDOW_FRAME_BUDGET_USEC := 12000
@@ -174,7 +175,8 @@ func _finish_world(index: Dictionary, path: String, registry: String, extent: Re
 	plane.size = extent.size
 	support.mesh = plane
 	support.layers = 0
-	support.position = Vector3(extent.get_center().x, -0.03 * float(index["world_scale"]), extent.get_center().y)
+	support.position = Vector3(extent.get_center().x,
+		FlatMapPlane.SOURCE_Y * float(index["world_scale"]), extent.get_center().y)
 	_world.add_child(support)
 	support.owner = _world
 	var camera := _world.get_node("OverviewCamera") as Camera3D

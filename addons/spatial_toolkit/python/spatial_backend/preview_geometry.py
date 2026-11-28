@@ -10,6 +10,8 @@ import math
 import re
 
 
+# Reference height for flat ground, road ribbons and other painted layers.
+FLAT_GROUND_Y = -0.03
 # Gameplay-only wall extension below the flat reference ground. Source height
 # evidence remains the above-ground roof height; no source coordinates change.
 FOUNDATION_BOTTOM = -0.05

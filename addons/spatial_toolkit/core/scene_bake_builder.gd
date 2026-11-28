@@ -5,6 +5,7 @@ signal progress(message: String, fraction: float)
 const Localization := preload("res://addons/spatial_toolkit/ui/editor_localization.gd")
 const MATERIALS := preload("res://addons/spatial_toolkit/core/scene_bake_materials.gd")
 const Layers := preload("res://addons/spatial_toolkit/core/spatial_layers.gd")
+const FlatMapPlane := preload("res://addons/spatial_toolkit/core/flat_map_plane.gd")
 const LAYERS := ["Buildings", "Roads", "Paths", "PlannedRoads", "Landuse", "Water"]
 const GENERATOR := "spatial_toolkit.scene_bake.v1"
 var _host: Node
@@ -45,6 +46,8 @@ func build(map: Node3D, chunk_size: float, merge_collisions: bool, host: Node, c
 	var window_style_indices := {}
 	var window_style_ids := PackedInt32Array()
 	var before := count_scene(map)
+	var flat_ground_y := FlatMapPlane.ground_height(map)
+	var scale_m := float(map.get_meta("world_scale", 1.0))
 	for index: int in _source_meshes.size():
 		if _cancelled.call():
 			return {"ok": false, "cancelled": true, "error": Localization.translate("Bake cancelled.")}
@@ -54,6 +57,9 @@ func build(map: Node3D, chunk_size: float, merge_collisions: bool, host: Node, c
 			return _error(Localization.translate("Degenerate transform on %s") % str(mesh.name))
 		if transform.basis.determinant() < 0.0:
 			return _error(Localization.translate("A mirrored transform requires a separate save: %s") % str(mesh.name))
+		var kind := Layers.root_kind(mesh)
+		if kind in FlatMapPlane.OVERLAYS:
+			transform.origin.y += FlatMapPlane.legacy_offset(mesh, transform, flat_ground_y, scale_m)
 		var bounds := transform * mesh.get_aabb()
 		var center := bounds.get_center()
 		var x := int(floor(center.x / chunk_size))
@@ -63,7 +69,6 @@ func build(map: Node3D, chunk_size: float, merge_collisions: bool, host: Node, c
 			_chunks[chunk_id] = {"origin": Vector3(x * chunk_size, 0, z * chunk_size), "groups": {}, "collision_groups": {}, "bodies": []}
 		var chunk: Dictionary = _chunks[chunk_id]
 		var identity := str(mesh.get_meta("source_id"))
-		var kind := Layers.root_kind(mesh)
 		if kind in ["Roads", "Paths", "PlannedRoads"]:
 			world_features["roads"][identity] = kind
 		elif kind == "Buildings":

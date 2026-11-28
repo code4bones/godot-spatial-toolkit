@@ -12,6 +12,7 @@ const BUILD_FRAME_BUDGET_USEC := 12000
 const LAYERS: Array[String] = ["Landuse", "Water", "Roads", "Paths", "PlannedRoads", "Buildings"]
 const COLLISION_BUILDER := preload("res://addons/spatial_toolkit/core/building_collision_generator.gd")
 const STYLE_MODULE := preload("res://addons/spatial_toolkit/core/map_style_module.gd")
+const FlatMapPlane := preload("res://addons/spatial_toolkit/core/flat_map_plane.gd")
 const FACADE_WINDOWS := preload("res://addons/spatial_toolkit/core/facade_windows.gd")
 const LAYER_TREE := preload("res://addons/spatial_toolkit/core/spatial_layers.gd")
 const FLIGHT_MODULE := preload("res://addons/spatial_toolkit/core/map_flight_module.gd")
@@ -682,7 +683,7 @@ func _setup_view(bounds: Array) -> void:
 		plane.size = Vector2(width + 160 * world_scale, depth + 160 * world_scale)
 	plane.material = _material("ground")
 	ground.mesh = plane
-	ground.position = ground_center + Vector3(0, -0.03 * world_scale, 0)
+	ground.position = ground_center + Vector3.UP * (FlatMapPlane.SOURCE_Y * world_scale)
 	add_child(ground)
 	ground.owner = self
 	ground.set_meta("assumptions", "Flat reference plane; no terrain elevation data")
@@ -759,6 +760,7 @@ func _enter_tree() -> void:
 func _ready() -> void:
 	if Engine.is_editor_hint():
 		return
+	FlatMapPlane.align_for_play(self)
 	FlightInput.ensure_actions()
 	_setup_scene_style.call_deferred()
 	if not scene_file_path.is_empty() and not has_node("RoadPatrols"):

@@ -6,6 +6,12 @@
 
 Раздел **Project Settings → General → Spatial Toolkit → Flight** доступен сразу после включения аддона. **Default Controller** выбирает контроллер для новых дронов. **Invert Ws** и **Invert Gamepad Pitch** задают начальное состояние инверсии. Для сохранённого дрона эти параметры берутся из его сцены.
 
+## Режим «Паук»
+
+Запустите сцену с дроном через **F6** и нажмите **`/`**. В первый раз паук появляется на поверхности под дроном. **V** или **△** на DS4 переключает вид от первого и третьего лица. В третьем лице видна модель робота-паука, а камера приближается у препятствий. Для ходьбы и лазанья используйте **WASD** или левый стик, для обзора — мышь или правый стик. Двигайтесь в сторону стены, чтобы перейти на неё, и продолжайте движение у угла или кромки крыши, чтобы перейти на соседнюю поверхность. **Esc** освобождает курсор, ЛКМ захватывает его снова. На DS4 управление приостанавливается и возобновляется через **Options**.
+
+Повторное **`/`** возвращает к дрону. Следующее включение паука сохраняет его положение и выбранный вид. Для лазанья используются статические коллизии карты. Действия `spider_toggle` и `flight_toggle_view` настраиваются в **Project Settings → Input Map**. Для ручной проверки переключитесь на третье лицо, перейдите с земли на фасад, обогните внешний угол боковым ходом и поднимитесь на крышу. Подведите камеру к стене и проверьте, как она приближается к пауку.
+
 ## Контроллеры
 
 | Действие | Classic / Классический | Bank and Edge Tracking / Крен и слежение у края | Reticle Flight / Полёт по прицелу |
@@ -116,6 +122,12 @@
 New maps default to **Gamepad Flight** with staged capture. To change the mode in a baked `map.scn`, select **FlyPlayer** and open **Drone Controls → Flight Controller** in the Inspector. Save the scene and press **F6**.
 
 **Project Settings → General → Spatial Toolkit → Flight** is available as soon as the addon is enabled. **Default Controller** selects the controller for new drones. **Invert Ws** and **Invert Gamepad Pitch** set their initial inversion preferences. Saved drones use the values authored in their scenes.
+
+## Spider mode
+
+Run a scene with a drone using **F6** and press **`/`**. The spider starts on the surface below the drone. Press **V** or **Triangle** on DualShock 4 to switch between first and third person. Third person shows a demo spider robot with a chase camera that pulls in near obstacles. Use **WASD** or the left stick to move and the mouse or right stick to look. Move into a wall to climb it, then keep moving at a corner or roof edge to cross to the adjoining surface. Press **Esc** to release the mouse and click to capture it again. On DualShock 4, **Options** toggles control.
+
+Press **`/`** again to return to the drone. The spider keeps its last position and view. Traversal uses the map's static collisions. Remap `spider_toggle` and `flight_toggle_view` in **Project Settings → Input Map**. To check a scene manually, switch to third person, climb from the ground onto a wall, strafe around an outside corner and cross the roof. Move the camera near a wall and check that it pulls in toward the spider.
 
 ## Controllers
 
