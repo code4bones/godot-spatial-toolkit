@@ -6,7 +6,7 @@ const GENERATOR := "spatial_toolkit.map_flight.v1"
 const Layers := preload("res://addons/spatial_toolkit/core/spatial_layers.gd")
 const Localization := preload("res://addons/spatial_toolkit/ui/editor_localization.gd")
 const Drone := preload("res://addons/spatial_toolkit/runtime/spatial_drone.gd")
-const DroneCamera := preload("res://addons/spatial_toolkit/runtime/drone_camera.gd")
+const ProjectDefaults := preload("res://addons/spatial_toolkit/core/spatial_project_settings.gd")
 const PLAYER_NAME := "FlyPlayer"
 const AUDIO_DEFAULTS_SETTING := "spatial_toolkit/flight/audio_defaults"
 const DEFAULT_CONTROLLER := Drone.DEFAULT_CONTROLLER
@@ -23,9 +23,14 @@ const DEFAULT_BODY_HEIGHT := 34.3
 const CAPSULE_RADIUS := 0.35
 const CAPSULE_HEIGHT := 1.8
 
-static func apply_to_scene(map: Node3D, controller := DEFAULT_CONTROLLER,
+static func default_controller() -> String:
+	return ProjectDefaults.default_flight_controller()
+
+static func apply_to_scene(map: Node3D, controller: Variant = null,
 		model_scene: PackedScene = null) -> Dictionary:
-	if not CONTROLLERS.has(controller):
+	if controller == null:
+		controller = default_controller()
+	if not controller is String or not CONTROLLERS.has(controller):
 		return {"success": false, "error": Localization.translate("Unknown drone controller: %s") % controller}
 	if not map.is_inside_tree():
 		return {"success": false, "error": Localization.translate("Attach the map root to the scene tree before adding flight.")}
@@ -67,7 +72,7 @@ static func apply_to_scene(map: Node3D, controller := DEFAULT_CONTROLLER,
 	var player := Drone.new()
 	player.name = PLAYER_NAME
 	player.flight_controller = Drone.CONTROLLER_IDS.find(controller)
-	player.invert_ws = bool(ProjectSettings.get_setting(DroneCamera.INVERT_WS_SETTING, false))
+	player.invert_ws = bool(ProjectSettings.get_setting(ProjectDefaults.FLIGHT_INVERT_WS, false))
 	player.position = start
 	player.motion_mode = CharacterBody3D.MOTION_MODE_FLOATING
 	player.collision_layer = 2
@@ -129,6 +134,7 @@ static func apply_to_scene(map: Node3D, controller := DEFAULT_CONTROLLER,
 				if child.owner == model:
 					child.owner = map
 	camera.set_script(CONTROLLERS[controller])
+	player.invert_gamepad_pitch = bool(ProjectSettings.get_setting(ProjectDefaults.FLIGHT_INVERT_GAMEPAD_PITCH, false))
 	_apply_audio_defaults(camera)
 	camera.set("overview_camera_path", NodePath("../../../../OverviewCamera"))
 	camera.set("map_legend_path", NodePath("../../../../PreviewLegend/Legend"))

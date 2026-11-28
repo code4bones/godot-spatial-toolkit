@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-11-28
+
+- Document how agents can inspect maps with Godot MCP and build gameplay from the saved world data.
+- Register flight controls and defaults when the addon is enabled in a new project.
+- Store the HTTP proxy and its service switches in local editor data for each project.
+- Default Map Areas to `https://ovp.dresel.systems/api` for Overpass.
+
 ## [0.10.0] - 2026-11-28
 
 - Download CityGML building data on demand for Helsinki, Munich, Montréal, Zürich and Lyon. Verify source checksums, show progress and allow cancellation. The archive cache lives in Godot's user data directory.

@@ -60,9 +60,8 @@ func _ready() -> void:
 	clip_contents = true
 	set_process_input(false)
 	_tile_proxy = Network.proxy_for(Network.MAP_EXPLORER)
-	var settings := Network.editor_settings()
-	if settings != null:
-		settings.settings_changed.connect(_on_network_settings_changed)
+	if Network.is_available():
+		Network.changes().changed.connect(_on_network_settings_changed)
 	resized.connect(_sync_layout)
 	_sync_layout()
 

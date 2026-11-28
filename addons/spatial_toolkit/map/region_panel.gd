@@ -126,14 +126,14 @@ func _build_source_controls(parent: Control) -> void:
 	_api_controls.add_child(endpoint_label)
 	_endpoint_input = LineEdit.new()
 	_endpoint_input.size_flags_horizontal = SIZE_EXPAND_FILL
-	_endpoint_input.placeholder_text = "https://overpass-api.de/api/"
+	_endpoint_input.placeholder_text = Overpass.DEFAULT_BASE_URL
 	_endpoint_input.tooltip_text = atr("Overpass base URL or full /interpreter URL")
-	_endpoint_input.text = Overpass.ENDPOINT
+	_endpoint_input.text = Overpass.DEFAULT_BASE_URL
 	_api_controls.add_child(_endpoint_input)
 	if Engine.is_editor_hint():
 		var settings := EditorInterface.get_editor_settings()
 		_endpoint_input.text = str(settings.get_project_metadata(
-			"spatial_toolkit", "overpass_endpoint", Overpass.ENDPOINT))
+			"spatial_toolkit", "overpass_endpoint", Overpass.DEFAULT_BASE_URL)).strip_edges()
 		_endpoint_input.text_changed.connect(func(value: String) -> void:
 			settings.set_project_metadata("spatial_toolkit", "overpass_endpoint", value))
 	_file_controls = HBoxContainer.new()

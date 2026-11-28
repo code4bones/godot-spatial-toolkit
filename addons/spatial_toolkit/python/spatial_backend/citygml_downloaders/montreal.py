@@ -43,7 +43,7 @@ class RemoteZip(io.RawIOBase):
     @staticmethod
     def _request(url, start, end):
         request = Request(url, headers={"Range": f"bytes={start}-{end}",
-                                        "User-Agent": "Godot-Spatial-Toolkit/0.10.0"})
+                                        "User-Agent": "Godot-Spatial-Toolkit/0.10.1"})
         for attempt in range(3):
             try:
                 response = open_https(request, timeout=75)

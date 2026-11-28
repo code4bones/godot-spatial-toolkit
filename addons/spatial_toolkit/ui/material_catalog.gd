@@ -95,9 +95,8 @@ func setup(editor: EditorInterface) -> void:
 	_request.body_size_limit = 64 * 1024 * 1024
 	add_child(_request)
 	_preview_proxy = Network.proxy_for(Network.TEXTURES)
-	var network_settings := Network.editor_settings()
-	if network_settings != null:
-		network_settings.settings_changed.connect(_refresh_preview_proxy)
+	if Network.is_available():
+		Network.changes().changed.connect(_refresh_preview_proxy)
 	if _editor != null:
 		_editor.get_resource_filesystem().filesystem_changed.connect(_refresh_local_materials)
 	_refresh_local_materials(true)

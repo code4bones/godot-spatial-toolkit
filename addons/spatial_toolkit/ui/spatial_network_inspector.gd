@@ -5,13 +5,11 @@ const Network := preload("res://addons/spatial_toolkit/core/spatial_network_sett
 const Localization := preload("res://addons/spatial_toolkit/ui/editor_localization.gd")
 
 class Preferences extends VBoxContainer:
-	var _settings: EditorSettings
 	var _address: LineEdit
 	var _switches: Dictionary[String, CheckBox] = {}
 
 	func _ready() -> void:
 		set_translation_domain(Localization.DOMAIN)
-		_settings = Network.editor_settings()
 		var row := HBoxContainer.new()
 		add_child(row)
 		var label := Label.new()
@@ -35,26 +33,25 @@ class Preferences extends VBoxContainer:
 			toggle.toggled.connect(_save_switch.bind(key))
 			_switches[key] = toggle
 			add_child(toggle)
-		_settings.settings_changed.connect(_sync)
+		Network.changes().changed.connect(_sync)
 		_sync()
 
 	func _save_address() -> void:
 		var value := _address.text.strip_edges()
 		_address.text = value
-		if value != _settings.get_setting(Network.PROXY_URL):
-			_settings.set_setting(Network.PROXY_URL, value)
+		Network.set_preference(Network.PROXY_URL, value)
 
 	func _save_switch(enabled: bool, key: String) -> void:
-		_settings.set_setting(key, enabled)
+		Network.set_preference(key, enabled)
 
 	func _sync() -> void:
 		if not _address.has_focus():
-			_address.text = str(_settings.get_setting(Network.PROXY_URL))
+			_address.text = str(Network.preference(Network.PROXY_URL))
 		for key in _switches:
-			_switches[key].set_pressed_no_signal(bool(_settings.get_setting(key)))
+			_switches[key].set_pressed_no_signal(bool(Network.preference(key)))
 
 func _can_handle(_object: Object) -> bool:
-	return Network.editor_settings() != null
+	return Network.is_available()
 
 func _parse_property(_object: Object, type: Variant.Type, property: String, hint: PropertyHint,
 		hint_text: String, _usage: int, _wide: bool) -> bool:

@@ -10,7 +10,8 @@ const LAYERS := {
 	"parks": {"label": "Parks", "filter": '["leisure"="park"]'},
 }
 const DEFAULT_LAYERS := ["buildings", "roads"]
-const ENDPOINT := "https://overpass-api.de/api/interpreter"
+const DEFAULT_BASE_URL := "https://ovp.dresel.systems/api"
+const ENDPOINT := DEFAULT_BASE_URL + "/interpreter"
 
 static func normalize_endpoint(value: String) -> String:
 	var address := value.strip_edges().rstrip("/")

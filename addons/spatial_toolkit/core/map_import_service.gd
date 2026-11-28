@@ -68,7 +68,7 @@ func generate_map(source_path: String, output_base: String, python_path: String,
 		default_height: float = 3.0, level_height: float = 3.0, building_collisions: bool = true,
 		daylight: bool = true, drone: bool = true, world_scale: float = 1.0, open_windows: bool = false,
 		window_density: String = "limited", window_limit: int = 6, window_every_n: int = 5,
-		flight_controller: String = FLIGHT.DEFAULT_CONTROLLER, breakable_windows: bool = false,
+		flight_controller: Variant = null, breakable_windows: bool = false,
 		appearance_profile: AppearanceProfile = null, local_origin: Variant = null,
 		additional_sources: PackedStringArray = PackedStringArray()) -> Dictionary:
 	if busy:
@@ -83,7 +83,9 @@ func generate_map(source_path: String, output_base: String, python_path: String,
 			return {"ok": false, "error": invalid}
 		if not daylight and appearance_profile.requires_daylight():
 			return {"ok": false, "error": Localization.translate("Enable materials, sky, and lighting to use the profile's facades and roofs.")}
-	if not FLIGHT.CONTROLLERS.has(flight_controller):
+	if flight_controller == null:
+		flight_controller = FLIGHT.default_controller()
+	if not flight_controller is String or not FLIGHT.CONTROLLERS.has(flight_controller):
 		return {"ok": false, "error": Localization.translate("Unknown drone controller.")}
 	if not is_finite(default_height) or default_height <= 0 or not is_finite(level_height) or level_height <= 0:
 		return {"ok": false, "error": Localization.translate("The height must be a positive number.")}

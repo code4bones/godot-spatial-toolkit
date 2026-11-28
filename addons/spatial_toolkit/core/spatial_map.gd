@@ -156,7 +156,7 @@ func build_from_data(data: Dictionary, report: Dictionary = {}, options: Diction
 			return {"success": false, "error": "world_scale must match the prepared gameplay geometry"}
 	if options.has("open_windows") and options["open_windows"] != open_windows:
 		return {"success": false, "error": "open_windows must match the prepared gameplay geometry"}
-	var controller: Variant = options.get("flight_controller", FLIGHT_MODULE.DEFAULT_CONTROLLER)
+	var controller: Variant = options.get("flight_controller", FLIGHT_MODULE.default_controller())
 	if not controller is String or not FLIGHT_MODULE.CONTROLLERS.has(controller):
 		return {"success": false, "error": "Invalid flight controller"}
 	var collisions_enabled: bool = options.get("building_collisions", true)

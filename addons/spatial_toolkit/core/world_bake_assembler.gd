@@ -199,7 +199,7 @@ func _finish_world(index: Dictionary, path: String, registry: String, extent: Re
 		# Keep the saved daylight environment available when Sky Mode changes.
 		Night.light_facades(Layers.buildings(_world), false, Night.fog_density(sky_settings))
 	if add_drone:
-		var flight := Flight.apply_to_scene(_world, Flight.DEFAULT_CONTROLLER, drone_model)
+		var flight := Flight.apply_to_scene(_world, null, drone_model)
 		if not flight.get("success", false):
 			return _error(str(flight.get("error", Localization.translate("Could not add the drone."))))
 	else:

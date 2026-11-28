@@ -4,6 +4,8 @@
 
 На новой карте дрон по умолчанию использует **Gamepad Flight** с поэтапным захватом. Чтобы поменять режим в готовой сцене `map.scn`, выберите **FlyPlayer** и откройте **Drone Controls → Flight Controller** в Инспекторе. Сохраните сцену и нажмите **F6**.
 
+Раздел **Project Settings → General → Spatial Toolkit → Flight** доступен сразу после включения аддона. **Default Controller** выбирает контроллер для новых дронов. **Invert Ws** и **Invert Gamepad Pitch** задают начальное состояние инверсии. Для сохранённого дрона эти параметры берутся из его сцены.
+
 ## Контроллеры
 
 | Действие | Classic / Классический | Bank and Edge Tracking / Крен и слежение у края | Reticle Flight / Полёт по прицелу |
@@ -44,7 +46,7 @@
 
 ## Назначение кнопок и осей
 
-Откройте **Project → Project Settings → Input Map**. Добавляйте и удаляйте привязки у действий `flight_*` и `map_*`, затем запустите сцену заново.
+Действия `flight_*` и `map_*` появятся в **Project → Project Settings → Input Map** при включении аддона. В режиме Gamepad Flight ось Left X управляет боковым движением. Добавляйте и удаляйте привязки в Input Map, затем запустите сцену заново.
 
 | Действия | Управление |
 | --- | --- |
@@ -113,6 +115,8 @@
 
 New maps default to **Gamepad Flight** with staged capture. To change the mode in a baked `map.scn`, select **FlyPlayer** and open **Drone Controls → Flight Controller** in the Inspector. Save the scene and press **F6**.
 
+**Project Settings → General → Spatial Toolkit → Flight** is available as soon as the addon is enabled. **Default Controller** selects the controller for new drones. **Invert Ws** and **Invert Gamepad Pitch** set their initial inversion preferences. Saved drones use the values authored in their scenes.
+
 ## Controllers
 
 | Action | Classic | Bank and Edge Tracking | Reticle Flight |
@@ -153,7 +157,7 @@ New maps default to **Gamepad Flight** with staged capture. To change the mode i
 
 ## Remapping buttons and axes
 
-Open **Project → Project Settings → Input Map**. Add or remove bindings from `flight_*` and `map_*` actions, then run the scene again.
+Enabling the addon registers `flight_*` and `map_*` actions in **Project → Project Settings → Input Map**. The Left X axis controls strafe in Gamepad Flight. Edit bindings in Input Map, then run the scene again.
 
 | Actions | Controls |
 | --- | --- |

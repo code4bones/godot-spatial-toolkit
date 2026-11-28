@@ -3,6 +3,9 @@ extends RefCounted
 ## Project-wide defaults for Spatial generation and local Python workers.
 
 const Overpass := preload("res://addons/spatial_toolkit/map/overpass_provider.gd")
+const Drone := preload("res://addons/spatial_toolkit/runtime/spatial_drone.gd")
+const FlightInput := preload("res://addons/spatial_toolkit/runtime/flight_input.gd")
+const Localization := preload("res://addons/spatial_toolkit/ui/editor_localization.gd")
 const PYTHON_EXECUTABLE := "spatial_toolkit/python/executable"
 const PYTHON_PLACEHOLDER := "Python 3.10+ · Spatial Toolkit"
 const DEFAULT_HEIGHT := "spatial_toolkit/generation/default_height_m"
@@ -11,6 +14,9 @@ const WORLD_SCALE := "spatial_toolkit/generation/world_scale"
 const BUILDING_COLLISIONS := "spatial_toolkit/generation/building_collisions"
 const DAYLIGHT := "spatial_toolkit/generation/daylight"
 const BAKE_MERGE_COLLISIONS := "spatial_toolkit/bake/merge_collisions"
+const FLIGHT_DEFAULT_CONTROLLER := "spatial_toolkit/flight/default_controller"
+const FLIGHT_INVERT_WS := "spatial_toolkit/flight/invert_ws"
+const FLIGHT_INVERT_GAMEPAD_PITCH := "spatial_toolkit/flight/invert_gamepad_pitch"
 const OSM_BUILDINGS := "spatial_toolkit/osm_buildings/"
 const OSM_ROADS := "spatial_toolkit/osm_roads/"
 const OSM_HEIGHT_LIMITS := {"low_height_limit_m": 10.0, "medium_height_limit_m": 24.0, "high_height_limit_m": 55.0}
@@ -45,6 +51,12 @@ static func register(editor_settings: Object) -> void:
 		BUILDING_COLLISIONS: {"default": true, "legacy": "building_collisions"},
 		DAYLIGHT: {"default": true, "legacy": "daylight"},
 		BAKE_MERGE_COLLISIONS: {"default": true, "legacy": "bake_merge_collisions"},
+		FLIGHT_DEFAULT_CONTROLLER: {"default": Drone.CONTROLLER_IDS.find(Drone.DEFAULT_CONTROLLER),
+			"enum": "%s:0,%s:1,%s:2,%s:3" % [Localization.translate(&"Classic"),
+				Localization.translate(&"Bank and Edge Tracking"), Localization.translate(&"Reticle Flight"),
+				Localization.translate(&"Gamepad Flight")]},
+		FLIGHT_INVERT_WS: {"default": false},
+		FLIGHT_INVERT_GAMEPAD_PITCH: {"default": false},
 	}
 	for key: String in OSM_HEIGHT_LIMITS:
 		definitions[OSM_BUILDINGS + key] = {"default": OSM_HEIGHT_LIMITS[key], "range": "0.1,1000,0.1,or_greater,suffix:m"}
@@ -81,18 +93,21 @@ static func register(editor_settings: Object) -> void:
 		if definition.has("range"):
 			info["hint"] = PROPERTY_HINT_RANGE
 			info["hint_string"] = definition["range"]
+		elif definition.has("enum"):
+			info["hint"] = PROPERTY_HINT_ENUM
+			info["hint_string"] = definition["enum"]
 		elif key == PYTHON_EXECUTABLE:
 			info["hint"] = PROPERTY_HINT_PLACEHOLDER_TEXT
 			info["hint_string"] = PYTHON_PLACEHOLDER
 		ProjectSettings.add_property_info(info)
 		ProjectSettings.set_as_basic(key, true)
-	if migrate or migrate_overpass:
-		if _migration_needs_save:
-			var error := ProjectSettings.save()
-			if error != OK:
-				push_warning("Spatial Toolkit: Could not save migrated project settings: " + error_string(error))
-				return
-			_migration_needs_save = false
+	_migration_needs_save = FlightInput.register_project_actions() or _migration_needs_save
+	if _migration_needs_save:
+		var error := ProjectSettings.save()
+		if error != OK:
+			push_warning("Spatial Toolkit: Could not save project settings: " + error_string(error))
+			return
+		_migration_needs_save = false
 		if migrate:
 			editor_settings.set_project_metadata(METADATA_SECTION, MIGRATION_KEY, true)
 		if migrate_overpass:
@@ -128,6 +143,12 @@ static func osm_rules() -> Dictionary:
 
 static func merge_bake_collisions() -> bool:
 	return bool(ProjectSettings.get_setting(BAKE_MERGE_COLLISIONS, true))
+
+static func default_flight_controller() -> String:
+	var selected: Variant = ProjectSettings.get_setting(FLIGHT_DEFAULT_CONTROLLER, null)
+	if selected is int and selected >= 0 and selected < Drone.CONTROLLER_IDS.size():
+		return Drone.CONTROLLER_IDS[selected]
+	return Drone.DEFAULT_CONTROLLER
 
 static func aperture_options() -> Dictionary:
 	var options := {}

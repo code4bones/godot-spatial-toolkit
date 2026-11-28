@@ -3,6 +3,7 @@ extends RefCounted
 
 enum Binding { KEY, PHYSICAL_KEY, MOUSE_BUTTON, JOY_BUTTON, JOY_AXIS }
 
+const PROJECT_MIGRATION := "spatial_toolkit/internal/flight_input_migrated"
 const DEFAULT_BINDINGS := {
 	&"flight_move_left": [[Binding.PHYSICAL_KEY, KEY_A], [Binding.JOY_AXIS, JOY_AXIS_LEFT_X, -1.0]],
 	&"flight_move_right": [[Binding.PHYSICAL_KEY, KEY_D], [Binding.JOY_AXIS, JOY_AXIS_LEFT_X, 1.0]],
@@ -58,38 +59,90 @@ const DEFAULT_BINDINGS := {
 }
 
 static func ensure_actions() -> void:
+	var migrate := not bool(ProjectSettings.get_setting(PROJECT_MIGRATION, false))
 	for action: StringName in DEFAULT_BINDINGS:
 		_register_action(action, DEFAULT_BINDINGS[action])
-	_replace_old_default(&"flight_gamepad_accelerate", [Binding.JOY_BUTTON, JOY_BUTTON_Y], 0.2)
-	_replace_old_default(&"flight_free_aim", [Binding.JOY_BUTTON, JOY_BUTTON_Y], 0.55)
+		if migrate:
+			_migrate_runtime_action(action)
 	for slot in range(1, 10):
-		_register_action(patrol_camera_action(slot), [[Binding.KEY, KEY_0 + slot], [Binding.KEY, KEY_KP_1 + slot - 1]])
+		_register_action(patrol_camera_action(slot), _patrol_bindings(slot))
 
-static func _replace_old_default(action: StringName, old_binding: Array, deadzone: float) -> void:
-	var events := InputMap.action_get_events(action)
-	if events.size() != 1 or events[0].device != -1 or not is_equal_approx(InputMap.action_get_deadzone(action), deadzone):
+## The editor Input Map reads ProjectSettings, while running scenes read InputMap.
+static func register_project_actions() -> bool:
+	var migrate := not bool(ProjectSettings.get_setting(PROJECT_MIGRATION, false))
+	var changed := migrate
+	for action: StringName in DEFAULT_BINDINGS:
+		changed = _register_project_action(action, DEFAULT_BINDINGS[action], migrate) or changed
+	for slot in range(1, 10):
+		changed = _register_project_action(patrol_camera_action(slot), _patrol_bindings(slot), false) or changed
+	if migrate:
+		ProjectSettings.set_setting(PROJECT_MIGRATION, true)
+	return changed
+
+static func _register_project_action(action: StringName, bindings: Array, migrate: bool) -> bool:
+	var key := "input/" + str(action)
+	if not ProjectSettings.has_setting(key):
+		var events: Array[InputEvent] = []
+		for binding: Array in bindings:
+			events.append(_create_event(binding))
+		ProjectSettings.set_setting(key, {"deadzone": _default_deadzone(action), "events": events})
+		return true
+	if not migrate:
+		return false
+	var saved: Variant = ProjectSettings.get_setting(key)
+	if not saved is Dictionary or not saved.get("events") is Array:
+		return false
+	var upgraded := _upgrade_stock_events(action, float(saved.get("deadzone", 0.0)), saved["events"])
+	if upgraded == saved["events"]:
+		return false
+	var updated: Dictionary = saved.duplicate()
+	updated["events"] = upgraded
+	ProjectSettings.set_setting(key, updated)
+	return true
+
+static func _migrate_runtime_action(action: StringName) -> void:
+	var original := InputMap.action_get_events(action)
+	var upgraded := _upgrade_stock_events(action, InputMap.action_get_deadzone(action), original)
+	if upgraded == original:
 		return
-	if not events[0].is_match(_create_event(old_binding), true):
-		return
-	InputMap.action_erase_event(action, events[0])
-	InputMap.action_add_event(action, _create_event(DEFAULT_BINDINGS[action][0]))
+	InputMap.action_erase_events(action)
+	for event: InputEvent in upgraded:
+		InputMap.action_add_event(action, event)
+
+static func _upgrade_stock_events(action: StringName, deadzone: float, events: Array) -> Array:
+	if events.size() != 1 or not events[0] is InputEvent or events[0].device != -1 \
+			or not is_equal_approx(deadzone, _default_deadzone(action)):
+		return events
+	match action:
+		&"flight_move_left", &"flight_move_right":
+			var standard: Array = DEFAULT_BINDINGS[action]
+			if events[0].is_match(_create_event(standard[0]), true):
+				return [events[0], _create_event(standard[1])]
+		&"flight_gamepad_accelerate", &"flight_free_aim":
+			if events[0].is_match(_create_event([Binding.JOY_BUTTON, JOY_BUTTON_Y]), true):
+				return [_create_event(DEFAULT_BINDINGS[action][0])]
+	return events
 
 
 static func patrol_camera_action(slot: int) -> StringName:
 	return StringName("flight_patrol_camera_%d" % slot)
 
+static func _patrol_bindings(slot: int) -> Array:
+	return [[Binding.KEY, KEY_0 + slot], [Binding.KEY, KEY_KP_1 + slot - 1]]
 
 static func _register_action(action: StringName, bindings: Array) -> void:
 	if InputMap.has_action(action):
 		return
-	var deadzone := 0.2
-	if action.begins_with("flight_move_") or action.begins_with("flight_look_"):
-		deadzone = 0.18
-	elif action == &"flight_fire" or action == &"flight_free_aim":
-		deadzone = 0.55
-	InputMap.add_action(action, deadzone)
+	InputMap.add_action(action, _default_deadzone(action))
 	for binding: Array in bindings:
 		InputMap.action_add_event(action, _create_event(binding))
+
+static func _default_deadzone(action: StringName) -> float:
+	if action.begins_with("flight_move_") or action.begins_with("flight_look_"):
+		return 0.18
+	if action == &"flight_fire" or action == &"flight_free_aim":
+		return 0.55
+	return 0.2
 
 
 static func _create_event(binding: Array) -> InputEvent:

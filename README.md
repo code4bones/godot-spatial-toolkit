@@ -2,7 +2,7 @@
 
 [Русская версия](./README.ru.md)
 
-Spatial Toolkit **v0.10.0** is a Godot 4 editor addon for turning GeoJSON and OpenStreetMap data into editable worlds and playable 3D maps. It has been tested with Godot 4.7.2 and 4.6.3.
+Spatial Toolkit **v0.10.1** is a Godot 4 editor addon for turning GeoJSON and OpenStreetMap data into editable worlds and playable 3D maps. It has been tested with Godot 4.7.2 and 4.6.3.
 
 ## Install
 
@@ -10,9 +10,11 @@ Spatial Toolkit **v0.10.0** is a Godot 4 editor addon for turning GeoJSON and Op
 2. Enable **Spatial Toolkit** in **Project → Project Settings → Plugins**.
 3. Open **Project Settings → General → Spatial Toolkit → Python**. Set the Python executable and run the dependency check below it. World generation needs Python 3.10 or newer, pyproj and GEOS 3.10 or newer. Local PBF extraction also requires GDAL 3.10 or newer with Python bindings and the OSM driver.
 
-Local GeoJSON import works offline. Map Explorer uses online tile and Overpass services. Configure the shared proxy address and individual service switches under **Spatial Toolkit → Network**.
+Local GeoJSON import works offline. Map Explorer uses online tile and Overpass services. Map Areas defaults to `https://ovp.dresel.systems/api`. The proxy address and service switches under **Spatial Toolkit → Network** are local to each project.
 
 Choose Helsinki, Munich, Montréal, Zürich or Lyon in Map Explorer for CityGML buildings. Confirm the download when a preset is missing from your cache. **3D data → Download 3D archive** retries the download and **Open dataset catalog** opens the provider page. Archives are stored under `user://spatial_toolkit/citygml/`. Fetch and send the OSM buildings layer for the selected area before creating the world.
+
+**Project Settings → General → Spatial Toolkit → Flight** sets the controller and inversion defaults for new drones. The addon registers the flight actions in **Input Map** when enabled. Inspect saved rigs under **FlyPlayer → Drone Controls**.
 
 ## From selected areas to a playable map
 
@@ -46,4 +48,4 @@ flowchart TD
 
 Open a local GeoJSON file in Map Explorer to start without fetching an area. The **Textures** tab imports PBR materials from Poly Haven and ambientCG. Double-click a catalog entry to import it, then drag the saved material to a compatible Inspector field. Flight audio can be assigned in the camera Inspector.
 
-[Drone controls](./docs/DRONE_CONTROLS.md#drone-controls) · [Changelog](./CHANGELOG.md) · [MIT license](./LICENSE)
+[Agent integration guide](./addons/spatial_toolkit/AGENT_GUIDE.md) · [Drone controls](./docs/DRONE_CONTROLS.md#drone-controls) · [Changelog](./CHANGELOG.md) · [MIT license](./LICENSE)
