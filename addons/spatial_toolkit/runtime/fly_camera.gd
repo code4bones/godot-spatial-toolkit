@@ -16,6 +16,7 @@ extends Camera3D
 		if not Engine.is_editor_hint() and is_node_ready():
 			_apply_view_mode()
 
+const FlightInput := preload("res://addons/spatial_toolkit/runtime/flight_input.gd")
 const FlightMap := preload("res://addons/spatial_toolkit/runtime/flight_map.gd")
 
 var _flight_overlay: CanvasLayer
@@ -31,6 +32,7 @@ func _ready() -> void:
 		set_physics_process(false)
 		set_process_unhandled_input(false)
 		return
+	FlightInput.ensure_actions()
 	var ancestor := get_parent()
 	while ancestor != null:
 		if ancestor is CharacterBody3D:
@@ -48,7 +50,7 @@ func _ready() -> void:
 		_craft = _body.get_node_or_null("FlightCraft") as Node3D
 	_create_flight_overlay()
 	_apply_view_mode()
-	get_window().focus_exited.connect(_release_mouse)
+	get_window().focus_exited.connect(_on_window_focus_exited)
 	if current:
 		_capture_mouse()
 		_hide_map_legend()
@@ -63,11 +65,15 @@ func _physics_process(delta: float) -> void:
 	if not current or Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
 		_stop_body()
 		return
+	var ascend := maxf(Input.get_action_strength(&"flight_lift_up"),
+		Input.get_action_strength(&"flight_free_ascend"))
+	var descend := maxf(Input.get_action_strength(&"flight_lift_down"),
+		Input.get_action_strength(&"flight_free_descend"))
 	var local := Vector3(
-		float(Input.is_physical_key_pressed(KEY_D)) - float(Input.is_physical_key_pressed(KEY_A)),
-		float(Input.is_physical_key_pressed(KEY_E) or Input.is_physical_key_pressed(KEY_SPACE)) - float(Input.is_physical_key_pressed(KEY_Q) or Input.is_physical_key_pressed(KEY_CTRL)),
-		float(Input.is_physical_key_pressed(KEY_S)) - float(Input.is_physical_key_pressed(KEY_W)))
-	_move_flight(local, delta, Input.is_physical_key_pressed(KEY_SHIFT))
+		Input.get_axis(&"flight_move_left", &"flight_move_right"),
+		ascend - descend,
+		Input.get_axis(&"flight_move_forward", &"flight_move_backward"))
+	_move_flight(local, delta, Input.is_action_pressed(&"flight_boost"))
 
 func _move_flight(local_axes: Vector3, delta: float, boosted: bool = false) -> void:
 	var direction := global_basis * Vector3(local_axes.x, 0, local_axes.z) + Vector3.UP * local_axes.y
@@ -87,32 +93,27 @@ func _stop_body() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if Engine.is_editor_hint():
 		return
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_TAB:
+	if FlightInput.event_pressed(event, &"flight_toggle_overview"):
 		_toggle_overview()
 		get_viewport().set_input_as_handled()
 		return
 	if not current:
 		return
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_V:
+	if FlightInput.event_pressed(event, &"flight_toggle_view"):
 		_toggle_third_person()
-		get_viewport().set_input_as_handled()
-		return
-	if event is InputEventKey and event.pressed and event.keycode == KEY_ESCAPE:
+	elif FlightInput.event_pressed(event, &"flight_release_controls"):
 		_release_mouse()
-		get_viewport().set_input_as_handled()
-	elif event is InputEventMouseButton and event.pressed:
-		if event.button_index == MOUSE_BUTTON_LEFT:
-			_capture_mouse()
-		elif event.button_index == MOUSE_BUTTON_WHEEL_UP:
-			speed_mps = minf(500.0, speed_mps * 1.25)
-		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-			speed_mps = maxf(1.0, speed_mps / 1.25)
-		else:
-			return
-		get_viewport().set_input_as_handled()
+	elif FlightInput.event_pressed(event, &"flight_primary_click"):
+		_capture_mouse()
+	elif FlightInput.event_pressed(event, &"flight_speed_step_up"):
+		speed_mps = minf(500.0, speed_mps * 1.25)
+	elif FlightInput.event_pressed(event, &"flight_speed_step_down"):
+		speed_mps = maxf(1.0, speed_mps / 1.25)
 	elif event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		_look(event.relative)
-		get_viewport().set_input_as_handled()
+	else:
+		return
+	get_viewport().set_input_as_handled()
 
 func _look(relative: Vector2) -> void:
 	var look_node: Node3D = _pivot if _pivot != null else self
@@ -160,6 +161,9 @@ func _hide_map_legend() -> void:
 
 func _capture_mouse() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+func _on_window_focus_exited() -> void:
+	_release_mouse()
 
 func _release_mouse() -> void:
 	_stop_body()

@@ -1,0 +1,347 @@
+{
+  "schema": 1,
+  "dataset_id": "lyon_presquile",
+  "dataset": "Métropole de Lyon CityGML 2018 — Lyon 1er et 2e",
+  "provider": "Métropole de Lyon",
+  "license": "Etalab-2.0",
+  "license_url": "https://www.data.gouv.fr/pages/legal/licences/etalab-2-0",
+  "horizontal_crs": "EPSG:3946",
+  "archives": [
+    {
+      "url": "https://data.grandlyon.com/files/grandlyon/imagerie/2018/maquette/LYON_1ER_2018.zip",
+      "size_bytes": 2172034649,
+      "members": [
+        {
+          "file": "LYON_1ER_2018/LYON_1ER_BATI_2018.gml",
+          "size_bytes": 83950984,
+          "crc32": "bd336379",
+          "sha256": "46c42a9fff42b16fe5222af6f6cbeaecd85603692214f0b543338698404470b2",
+          "source_updated_at": "2021-01-19T09:36:02Z"
+        },
+        {
+          "file": "LYON_1ER_2018/LYON_1ER_BATI_REMARQUABLE/25_HOTEL_DE_VILLE.gml",
+          "size_bytes": 2680302,
+          "crc32": "59ba3760",
+          "sha256": "7a9edf909776c0b7fecfae390e1cbe66e57671d0aebfc12c0cdf35b2b019f964",
+          "source_updated_at": "2021-01-19T09:36:02Z"
+        },
+        {
+          "file": "LYON_1ER_2018/LYON_1ER_BATI_REMARQUABLE/282_MAIRIE_LYON1.gml",
+          "size_bytes": 82736,
+          "crc32": "358f0359",
+          "sha256": "494afca64dde644adc3ecbde072ebc778cddc1121c7a667cdef4d9ef2520d637",
+          "source_updated_at": "2021-01-19T09:36:02Z"
+        },
+        {
+          "file": "LYON_1ER_2018/LYON_1ER_BATI_REMARQUABLE/297_ST_BRUNO_DES_CHARTREUX_LYON1.gml",
+          "size_bytes": 1450451,
+          "crc32": "2d013f2d",
+          "sha256": "33d6000e3f95d8fc5bdd582c61b259a3c1f1a1dada703c17a787653f6740a20d",
+          "source_updated_at": "2021-01-19T09:36:02Z"
+        },
+        {
+          "file": "LYON_1ER_2018/LYON_1ER_BATI_REMARQUABLE/43_MUSEE_BEAUX_ARTS.gml",
+          "size_bytes": 3528014,
+          "crc32": "9fbc4481",
+          "sha256": "cf7b22c2b3980ef7467c4be167b3c37a84ca78fae8667a9ccd26fb33654bf0ff",
+          "source_updated_at": "2021-01-19T09:36:02Z"
+        },
+        {
+          "file": "LYON_1ER_2018/LYON_1ER_BATI_REMARQUABLE/45_OPERA_LYON.gml",
+          "size_bytes": 2074946,
+          "crc32": "1a12e3f5",
+          "sha256": "e68a419154cde071f65ffc63bb5dfb63966dde8f78055b2712080aacc64fb274",
+          "source_updated_at": "2021-01-19T09:36:02Z"
+        }
+      ],
+      "last_modified": "Tue, 19 Jan 2021 09:36:02 GMT",
+      "etag": "\"6006a802-81769e59\"",
+      "source_updated_at": "2021-01-19T09:36:02Z"
+    },
+    {
+      "url": "https://data.grandlyon.com/files/grandlyon/imagerie/2018/maquette/LYON_2EME_2018.zip",
+      "size_bytes": 3095381670,
+      "members": [
+        {
+          "file": "LYON_2EME_2018/LYON_2EME_BATI_2018.gml",
+          "size_bytes": 110576146,
+          "crc32": "96008d09",
+          "sha256": "f4d2e15aea99ea303779e9678160962180e537236a708953601adacf937497f7",
+          "source_updated_at": "2021-01-19T09:36:32Z"
+        },
+        {
+          "file": "LYON_2EME_2018/LYON_2EME_BATI_REMARQUABLE/03_BASILIQUE_AINAY.gml",
+          "size_bytes": 820193,
+          "crc32": "47713931",
+          "sha256": "cc5197e8e6425e114739a1bbcc68b35c6246c4662e39f10d56ac1b36d4ee8101",
+          "source_updated_at": "2021-01-19T09:36:32Z"
+        },
+        {
+          "file": "LYON_2EME_2018/LYON_2EME_BATI_REMARQUABLE/04_ANCIENNE_BOURSE_LYON.gml",
+          "size_bytes": 2308616,
+          "crc32": "97d17784",
+          "sha256": "b68f0156ee02b01767fd15755c2063823c6c14472fb2720109fc1154bc2e5d00",
+          "source_updated_at": "2021-01-19T09:36:32Z"
+        },
+        {
+          "file": "LYON_2EME_2018/LYON_2EME_BATI_REMARQUABLE/06_CLOCHER_PLACE_ANTONIN_PONCET.gml",
+          "size_bytes": 279449,
+          "crc32": "a2b36971",
+          "sha256": "13029495989894084ff12f8102eb9f8bc89fbe70201f4a8bc372b55471b93f6f",
+          "source_updated_at": "2021-01-19T09:36:32Z"
+        },
+        {
+          "file": "LYON_2EME_2018/LYON_2EME_BATI_REMARQUABLE/09_BRASSERIE_GEORGES.gml",
+          "size_bytes": 67778,
+          "crc32": "62c62166",
+          "sha256": "aeab68c98dec94f32c1f1f9b44e3d16ec6625c03725f6b9c10a007a1aeed89c2",
+          "source_updated_at": "2021-01-19T09:36:32Z"
+        },
+        {
+          "file": "LYON_2EME_2018/LYON_2EME_BATI_REMARQUABLE/10_THEATRE_CELESTINS.gml",
+          "size_bytes": 395274,
+          "crc32": "3f77eea5",
+          "sha256": "517b6e6f48bcb9d988c2d273752bf2045d201b96a7c7b6f947e76a4e34d7c88f",
+          "source_updated_at": "2021-01-19T09:36:32Z"
+        },
+        {
+          "file": "LYON_2EME_2018/LYON_2EME_BATI_REMARQUABLE/11_DOUANE_LYON_CONFLUENCE.gml",
+          "size_bytes": 495846,
+          "crc32": "048c722f",
+          "sha256": "0b2a1b4bbb2ccf63be9738b35a98ce84e764702661ab808387d6852fcf8a9d41",
+          "source_updated_at": "2021-01-19T09:36:32Z"
+        },
+        {
+          "file": "LYON_2EME_2018/LYON_2EME_BATI_REMARQUABLE/12_ECHANGEUR_PERRACHE.gml",
+          "size_bytes": 25735083,
+          "crc32": "493ab1ac",
+          "sha256": "615e84f202749ba621476b66d1e4ee645a506374c868bd34ceafe13d4e59e011",
+          "source_updated_at": "2021-01-19T09:36:32Z"
+        },
+        {
+          "file": "LYON_2EME_2018/LYON_2EME_BATI_REMARQUABLE/13_EGLISE_STBONAVENTURE.gml",
+          "size_bytes": 418420,
+          "crc32": "835bc51e",
+          "sha256": "1fe6fe39cd9b7084fad1cdcaedd4b685021a9da710b4668ba46f18884f989335",
+          "source_updated_at": "2021-01-19T09:36:32Z"
+        },
+        {
+          "file": "LYON_2EME_2018/LYON_2EME_BATI_REMARQUABLE/155_POLE_NAUTIQUE_P_CONFLUENCE.gml",
+          "size_bytes": 5703327,
+          "crc32": "037ca73c",
+          "sha256": "013e0ad508a3ec8fa01bd79098b3b880feec85687e49e2164234dba009d06d1f",
+          "source_updated_at": "2021-01-19T09:36:32Z"
+        },
+        {
+          "file": "LYON_2EME_2018/LYON_2EME_BATI_REMARQUABLE/159_ZAC2_MAISON_DE_LA_CONFLUENCE.gml",
+          "size_bytes": 1802929,
+          "crc32": "cbdc5a9f",
+          "sha256": "a47c44fe6acccd45cd928b05a1dda8be053dcadb6f1391ae6134f24a3aff9897",
+          "source_updated_at": "2021-01-19T09:36:32Z"
+        },
+        {
+          "file": "LYON_2EME_2018/LYON_2EME_BATI_REMARQUABLE/161_P33_RIVE_SAONE_CONFLUENCE.gml",
+          "size_bytes": 783280,
+          "crc32": "ded3f7a9",
+          "sha256": "f1349d89080f20d7f198374d0c4c838e1df3f1b35175d65a1a9b42657b98a076",
+          "source_updated_at": "2021-01-19T09:36:32Z"
+        },
+        {
+          "file": "LYON_2EME_2018/LYON_2EME_BATI_REMARQUABLE/162_P33_GROUPEMENT_CONFLUENCE.gml",
+          "size_bytes": 6270238,
+          "crc32": "67005cac",
+          "sha256": "cf937f61ea7bbb9baae052058362c24c7fac923410a4ab5cf1cb6aad6108230a",
+          "source_updated_at": "2021-01-19T09:36:32Z"
+        },
+        {
+          "file": "LYON_2EME_2018/LYON_2EME_BATI_REMARQUABLE/164_MAISON_RIVES_SAONE.gml",
+          "size_bytes": 536122,
+          "crc32": "09b93868",
+          "sha256": "56741b3e5fc32c32bbd0657ff86efe10b3f30a5a3d473a45b31e29f7c27a87bd",
+          "source_updated_at": "2021-01-19T09:36:32Z"
+        },
+        {
+          "file": "LYON_2EME_2018/LYON_2EME_BATI_REMARQUABLE/19_GARE_PERRACHE.gml",
+          "size_bytes": 2052099,
+          "crc32": "fb0c7e2d",
+          "sha256": "1d6851ed8b6886f464be87d94944e477839530994d776e90a64e102493457932",
+          "source_updated_at": "2021-01-19T09:36:32Z"
+        },
+        {
+          "file": "LYON_2EME_2018/LYON_2EME_BATI_REMARQUABLE/27_HOTELDIEU.gml",
+          "size_bytes": 2655748,
+          "crc32": "5e70eb8a",
+          "sha256": "cb3a291f184e818fc7969d2cd2a08250fbe33faa3ca1be26a724a565f0ed544a",
+          "source_updated_at": "2021-01-19T09:36:32Z"
+        },
+        {
+          "file": "LYON_2EME_2018/LYON_2EME_BATI_REMARQUABLE/280_MAIRIE_LYON2.gml",
+          "size_bytes": 154353,
+          "crc32": "740b3e04",
+          "sha256": "ac0464d2fd03b0854ae16004c230a0d80e2f21c0b35c596276dce2170eee2c11",
+          "source_updated_at": "2021-01-19T09:36:32Z"
+        },
+        {
+          "file": "LYON_2EME_2018/LYON_2EME_BATI_REMARQUABLE/299_GL_EVENTS.gml",
+          "size_bytes": 413168,
+          "crc32": "e79b8761",
+          "sha256": "fbb2687d687462d217494278d63f7c1a6d4cdc243a1b4341cb9a2059ab9f7297",
+          "source_updated_at": "2021-01-19T09:36:32Z"
+        },
+        {
+          "file": "LYON_2EME_2018/LYON_2EME_BATI_REMARQUABLE/300_EURONEWS.gml",
+          "size_bytes": 369518,
+          "crc32": "71cfb16d",
+          "sha256": "ea7ace1d7e81259e80d02636fa78c59b82a9b9c82d8f0930aed01de60e7455bb",
+          "source_updated_at": "2021-01-19T09:36:32Z"
+        },
+        {
+          "file": "LYON_2EME_2018/LYON_2EME_BATI_REMARQUABLE/308_MJC_CONFLUENCE.gml",
+          "size_bytes": 161323,
+          "crc32": "1e0f3ef6",
+          "sha256": "c8a9ecba2bc5e9244b4276ddb1896996d95b2193a2f95efbe7ce5b1477943e55",
+          "source_updated_at": "2021-01-19T09:36:32Z"
+        },
+        {
+          "file": "LYON_2EME_2018/LYON_2EME_BATI_REMARQUABLE/309_CENTRE_COMMERCIAL_CONFLUENCE.gml",
+          "size_bytes": 5985027,
+          "crc32": "d9275ce4",
+          "sha256": "4428284fd4d6925651a2cf2ab898ddaa7318d6d58021b7923c1320ac067d2fde",
+          "source_updated_at": "2021-01-19T09:36:32Z"
+        },
+        {
+          "file": "LYON_2EME_2018/LYON_2EME_BATI_REMARQUABLE/30_HOTEL_DES_POSTES.gml",
+          "size_bytes": 1679230,
+          "crc32": "6573e684",
+          "sha256": "55234ce8c6bf5745b5f0cf55acd241ceda6e9e040bc2dd81988f28997cb6a961",
+          "source_updated_at": "2021-01-19T09:36:32Z"
+        },
+        {
+          "file": "LYON_2EME_2018/LYON_2EME_BATI_REMARQUABLE/310_UNIVERSITE_CATHOLIQUE_LYON2.gml",
+          "size_bytes": 2508431,
+          "crc32": "ac37c423",
+          "sha256": "c4b19dfab9d38bd889eb9a274556b9ac1ba93a0f16eba190960e22014c965ad7",
+          "source_updated_at": "2021-01-19T09:36:32Z"
+        },
+        {
+          "file": "LYON_2EME_2018/LYON_2EME_BATI_REMARQUABLE/311_MUSEE_CONFLUENCE.gml",
+          "size_bytes": 2269658,
+          "crc32": "ececcb43",
+          "sha256": "98be4b4acaa9193f9cc2236eb795fd31f5a082b16e537bce4ceef6109ef61838",
+          "source_updated_at": "2021-01-19T09:36:32Z"
+        },
+        {
+          "file": "LYON_2EME_2018/LYON_2EME_BATI_REMARQUABLE/42_MONOPRIX_GML.gml",
+          "size_bytes": 233473,
+          "crc32": "01421330",
+          "sha256": "da7c86582a4d086e74aacbd5a2f9cf05d05b9abd8cd7d22e4caf5e60d5401541",
+          "source_updated_at": "2021-01-19T09:36:32Z"
+        },
+        {
+          "file": "LYON_2EME_2018/LYON_2EME_BATI_REMARQUABLE/47_PATINOIRE.gml",
+          "size_bytes": 2358196,
+          "crc32": "65875c8d",
+          "sha256": "dcafd9ca3eab02d37d505e25079878bf517e187ac0e23ed00033e1992b97bed9",
+          "source_updated_at": "2021-01-19T09:36:32Z"
+        },
+        {
+          "file": "LYON_2EME_2018/LYON_2EME_BATI_REMARQUABLE/50_PROGRES_CONFLUENCE.gml",
+          "size_bytes": 282410,
+          "crc32": "0fb54c38",
+          "sha256": "43c5044fd57076a8a37b36d5ca633d32a4271f1a81c4a105c66b68c3285328c1",
+          "source_updated_at": "2021-01-19T09:36:32Z"
+        },
+        {
+          "file": "LYON_2EME_2018/LYON_2EME_BATI_REMARQUABLE/52_RECTANGLE_BELLECOUR.gml",
+          "size_bytes": 48497,
+          "crc32": "932801e3",
+          "sha256": "262257629cf5ffe3121c0bc7cf321de7fd801ecf3253dfef3ce56b22eb62e29d",
+          "source_updated_at": "2021-01-19T09:36:32Z"
+        },
+        {
+          "file": "LYON_2EME_2018/LYON_2EME_BATI_REMARQUABLE/53_SALINS_CONFLUENCE.gml",
+          "size_bytes": 100716,
+          "crc32": "108fa47f",
+          "sha256": "b257b934f0986b1ead7932f11b7aca5e829a5e404b48e447d54ec4314db55d69",
+          "source_updated_at": "2021-01-19T09:36:32Z"
+        },
+        {
+          "file": "LYON_2EME_2018/LYON_2EME_BATI_REMARQUABLE/54_EGLISE_STEBLANDINE.gml",
+          "size_bytes": 3928479,
+          "crc32": "59401577",
+          "sha256": "4c0b76bb46f138ac0379a4240082f593924df8d1697b46e302f8d687114c08c6",
+          "source_updated_at": "2021-01-19T09:36:32Z"
+        },
+        {
+          "file": "LYON_2EME_2018/LYON_2EME_BATI_REMARQUABLE/57_PAROISSE_STNIZIER.gml",
+          "size_bytes": 1004227,
+          "crc32": "f55bb807",
+          "sha256": "1ef672fbecd053f74554d16cd585df025afa68b4a55977aeaad3ec986cc70daf",
+          "source_updated_at": "2021-01-19T09:36:32Z"
+        },
+        {
+          "file": "LYON_2EME_2018/LYON_2EME_BATI_REMARQUABLE/59_SUCRIERE_CONFLUENCE.gml",
+          "size_bytes": 2662073,
+          "crc32": "481e3cad",
+          "sha256": "bce22120d77c2435f98e1ef3478fe4359158e0b039d74ca83f7ede7d20911604",
+          "source_updated_at": "2021-01-19T09:36:32Z"
+        },
+        {
+          "file": "LYON_2EME_2018/LYON_2EME_BATI_REMARQUABLE/69_HOTEL_REGION_CONFLUENCE.gml",
+          "size_bytes": 493922,
+          "crc32": "17af75c3",
+          "sha256": "048921ee39b23e8486b023a9b0c1c746b2a1cf8bf3c6ef247c20587817520123",
+          "source_updated_at": "2021-01-19T09:36:32Z"
+        },
+        {
+          "file": "LYON_2EME_2018/LYON_2EME_BATI_REMARQUABLE/72_ILOT_C_GDF_SUEZ_CONFLUENCE.gml",
+          "size_bytes": 870544,
+          "crc32": "8254d305",
+          "sha256": "da533b0b237075f9eac82b4cf6252af1090ac9cda4559c0d2ce1815abc04a074",
+          "source_updated_at": "2021-01-19T09:36:32Z"
+        },
+        {
+          "file": "LYON_2EME_2018/LYON_2EME_BATI_REMARQUABLE/74_SEGUIN_CONFLUENCE.gml",
+          "size_bytes": 2348436,
+          "crc32": "8e85e222",
+          "sha256": "fd9be7c6bc64ca5bd92afe2f0489be49159f66d519f25cd7e48c2043b37806d6",
+          "source_updated_at": "2021-01-19T09:36:32Z"
+        },
+        {
+          "file": "LYON_2EME_2018/LYON_2EME_BATI_REMARQUABLE/75_PLACE_ARCHIVES_CONFLUENCE.gml",
+          "size_bytes": 936628,
+          "crc32": "d6e80be8",
+          "sha256": "633e4c74fa86a358498e85a0411e191d09de1e926b8659e68f6f275a2a652f83",
+          "source_updated_at": "2021-01-19T09:36:32Z"
+        },
+        {
+          "file": "LYON_2EME_2018/LYON_2EME_BATI_REMARQUABLE/76_POLE_NAUTIQUE_SA_CONFLUENCE.gml",
+          "size_bytes": 1991223,
+          "crc32": "a72a18af",
+          "sha256": "6004f56e27096354219680900f2c7f9255a0a0f97323fb8a5bfcbc7e10d23ed2",
+          "source_updated_at": "2021-01-19T09:36:32Z"
+        },
+        {
+          "file": "LYON_2EME_2018/LYON_2EME_BATI_REMARQUABLE/77_POLE_NAUTIQUE_SB_CONFLUENCE.gml",
+          "size_bytes": 2799210,
+          "crc32": "5972aa03",
+          "sha256": "44c7d96df987b3f687b5681c6820634f83f2212b631b2e9257e4a579d68b5b23",
+          "source_updated_at": "2021-01-19T09:36:32Z"
+        },
+        {
+          "file": "LYON_2EME_2018/LYON_2EME_BATI_REMARQUABLE/44_OFFICE_TOURISME.gml",
+          "size_bytes": 20291,
+          "crc32": "b8b6492c",
+          "sha256": "99b18f37eb931d5c340f544d57216e44c18f74bfd09f5b105973953a568bf6e0",
+          "source_updated_at": "2021-01-19T09:36:32Z"
+        }
+      ],
+      "last_modified": "Tue, 19 Jan 2021 09:36:32 GMT",
+      "etag": "\"6006a820-b87fc6a6\"",
+      "source_updated_at": "2021-01-19T09:36:32Z"
+    }
+  ],
+  "survey_year": 2018,
+  "retrieved_date": "2026-11-28",
+  "crs_assumption": "Remarkable CityGML files without an explicit CRS inherit EPSG:3946 from the enclosing official arrondissement dataset; original coordinates are retained."
+}

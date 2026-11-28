@@ -6,6 +6,7 @@ signal bbox_edited(id: int, bbox: Dictionary)
 signal bbox_shortcut_changed
 signal view_changed
 signal tile_status(message: String)
+signal selection_feedback(message: String)
 
 const Mercator := preload("map_projection.gd")
 const GeoJSONOverlay := preload("geojson_overlay.gd")
@@ -18,6 +19,7 @@ const MAX_REQUESTS := 4
 const MAX_TEXTURES := 128
 const NO_EDIT_HANDLE := -2
 const MOVE_HANDLE := -1
+const CITYGML_COVERAGE_COLOR := Color("c393ff")
 
 # Keep the center in doubles so high-zoom cursor anchoring survives editor builds
 # with single-precision vectors.
@@ -42,6 +44,8 @@ var bbox_drawing_enabled := true:
 		if not value:
 			_end_bbox_drag()
 var regions: Array[Dictionary] = []
+var citygml_dataset: Dictionary = {}
+var _citygml_reference_bounds: Dictionary = {}
 var _bbox_drag := false
 var _bbox_shortcut_active := false
 var _bbox_start := Vector2.ZERO
@@ -90,6 +94,11 @@ func set_tile_coverage(bbox: Dictionary, restricted: bool) -> void:
 	_follow_tile_coverage = not _tile_coverage.is_empty()
 	_sync_layout()
 
+func set_citygml_dataset(dataset: Dictionary, reference_bounds: Dictionary = {}) -> void:
+	citygml_dataset = dataset.duplicate(true)
+	_citygml_reference_bounds = reference_bounds.duplicate()
+	queue_redraw()
+
 func _is_valid_tile_coverage(bbox: Dictionary) -> bool:
 	for side in ["west", "north", "east", "south"]:
 		var coordinate: Variant = bbox.get(side)
@@ -119,7 +128,9 @@ func _sync_layout() -> void:
 	else:
 		_refresh()
 
-func go_to(longitude: float, latitude: float) -> void:
+func go_to(longitude: float, latitude: float, zoom_level: int = -1) -> void:
+	if zoom_level >= 0:
+		zoom = clampi(zoom_level, 0, 19)
 	_set_center(Mercator.longitude_to_x(longitude), Mercator.latitude_to_y(latitude))
 
 func change_zoom(delta: int, anchor: Vector2) -> void:
@@ -404,6 +415,11 @@ func _draw() -> void:
 		var rect := Rect2(size * 0.5 + offset * TILE_SIZE, Vector2.ONE * TILE_SIZE)
 		_draw_tile(position, rect)
 	_draw_overlay()
+	var citygml_coverage: Dictionary = citygml_dataset.get("coverage", {})
+	if not citygml_coverage.is_empty():
+		_draw_region(_region_rect(citygml_coverage), CITYGML_COVERAGE_COLOR, false)
+	elif _citygml_reference_bounds:
+		_draw_region(_region_rect(_citygml_reference_bounds), CITYGML_COVERAGE_COLOR, false, true)
 	for entry in regions:
 		var color := Color(0.36, 0.73, 1.0) if entry.get("checked", false) else Color(0.94, 0.65, 0.25)
 		if entry.get("imported", false):
@@ -442,15 +458,34 @@ func _region_rect(bbox: Dictionary) -> Rect2:
 	return Rect2(size * 0.5 + Vector2((west + copy) * scale, north * scale),
 		Vector2((east - west) * scale, (south - north) * scale))
 
-func _draw_region(box: Rect2, color: Color, editing: bool) -> void:
+func _draw_region(box: Rect2, color: Color, editing: bool, reference: bool = false) -> void:
 	var scale := _world_size()
 	for copy in range(ceili(-box.end.x / scale), floori((size.x - box.position.x) / scale) + 1):
 		var visible_box := Rect2(box.position + Vector2(copy * scale, 0), box.size)
-		draw_rect(visible_box, Color(color, 0.15))
-		draw_rect(visible_box, Color.WHITE if editing else color, false, 2.0)
+		draw_rect(visible_box, Color(color, 0.12 if reference else 0.15))
+		if reference:
+			var corners := _corners(visible_box)
+			for index in corners.size():
+				draw_dashed_line(corners[index], corners[(index + 1) % corners.size()], color, 2.0, 7.0)
+			_draw_coverage_label(visible_box, color)
+		else:
+			draw_rect(visible_box, Color.WHITE if editing else color, false, 2.0)
 		if editing:
 			for corner in _corners(visible_box):
 				draw_rect(Rect2(corner - Vector2(4, 4), Vector2(8, 8)), Color.WHITE)
+
+func _draw_coverage_label(box: Rect2, color: Color) -> void:
+	var font := get_theme_default_font()
+	var font_size := get_theme_default_font_size()
+	var title := atr("3D model extent")
+	var padding := Vector2(6, 3)
+	var label_size := font.get_string_size(title, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size) + padding * 2
+	var visible_box := box.intersection(Rect2(Vector2.ZERO, size)).grow(-5.0)
+	if visible_box.size.x < label_size.x or visible_box.size.y < label_size.y:
+		return
+	draw_rect(Rect2(visible_box.position, label_size), Color(0.10, 0.12, 0.15, 0.92))
+	var baseline := visible_box.position + padding + Vector2(0, font.get_ascent(font_size))
+	draw_string(font, baseline, title, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, color)
 
 func _draw_overlay() -> void:
 	if overlay == null:

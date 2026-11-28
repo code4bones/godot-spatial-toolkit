@@ -1,0 +1,141 @@
+{
+  "repository": "https://gitlab.lrz.de/tum-gis/tum2twin-datasets",
+  "revision": "e032a71fc9b3c9c3d4869e3aca9677d1234086aa",
+  "members": [
+    {
+      "file": "DEBY_LOD3_4906965.gml",
+      "sha256": "9a8aa5dba712f6162f440004119665e8f9724c029d589e2917439a6c840f532a",
+      "size_bytes": 64036220
+    },
+    {
+      "file": "DEBY_LOD3_4906966.gml",
+      "sha256": "818a553387a4fdd1e0559b53cc22e3feb3cc0352c6eaeeaf1a1a2e8d7d263496",
+      "size_bytes": 55514947
+    },
+    {
+      "file": "DEBY_LOD3_4906970.gml",
+      "sha256": "dc3124956fd840d2f905a255fd825d85e13b43d856429667b7a7ce54d5561dc9",
+      "size_bytes": 2858169
+    },
+    {
+      "file": "DEBY_LOD3_4906972.gml",
+      "sha256": "e9f2e93bdeabb1f431f61ae31dfd37eae851876386de93a909d3f805835bdb5d",
+      "size_bytes": 13731696
+    },
+    {
+      "file": "DEBY_LOD3_4906976.gml",
+      "sha256": "5173eb69969919e69daf238ddc82647195bcff1a8f01e352fcdcdaff9e855d5e",
+      "size_bytes": 16101777
+    },
+    {
+      "file": "DEBY_LOD3_4906978.gml",
+      "sha256": "609e6d26afb7efc36659b21839c19b593c97ad131701a5db5d4e3b9a72c6fcff",
+      "size_bytes": 4161805
+    },
+    {
+      "file": "DEBY_LOD3_4906979.gml",
+      "sha256": "1b4cbd3b19e6b3888b4876e9f3fcb47629b1eb194d2170cb2312a11413d29747",
+      "size_bytes": 8308995
+    },
+    {
+      "file": "DEBY_LOD3_4906980.gml",
+      "sha256": "4a0afbd62e057f72d5faf21f50cb04feb69cd2d6e1e988dd4007bfe02e9c9c2c",
+      "size_bytes": 82569402
+    },
+    {
+      "file": "DEBY_LOD3_4906981.gml",
+      "sha256": "943c903fa4f9661f22707bc2cd1c59be81940b83dbdf8934206083b3edeeea0c",
+      "size_bytes": 50414963
+    },
+    {
+      "file": "DEBY_LOD3_4907506.gml",
+      "sha256": "a3f8823d3ca093967709d1cb809ac35a4ef44c0f7c1bae2610babf95fc25aff5",
+      "size_bytes": 1771641
+    },
+    {
+      "file": "DEBY_LOD3_4907507.gml",
+      "sha256": "68ce9d2909aa91646eddcfe68602a2523a4be5c9b88c0e768951740e793fe60c",
+      "size_bytes": 18006585
+    },
+    {
+      "file": "DEBY_LOD3_4907514.gml",
+      "sha256": "f3b01eb17319e94112e1c00a535624c0ad9488ad95a2408a88a35b929fd02a81",
+      "size_bytes": 13318877
+    },
+    {
+      "file": "DEBY_LOD3_4907515.gml",
+      "sha256": "956c7e5abe1f2c9fa8aa8230b2d5b84bd46b6a515b45d840b573be1ca940d321",
+      "size_bytes": 11443639
+    },
+    {
+      "file": "DEBY_LOD3_4907516.gml",
+      "sha256": "6d4d7ec8a19491ae16b5243aa5f134c6af9a20e24b7dd05caccdcba47d0cb004",
+      "size_bytes": 5485324
+    },
+    {
+      "file": "DEBY_LOD3_4907517.gml",
+      "sha256": "b0a7a3e25ed9e5d9aeef490c27553f9223ad2b4cd47fff3ab7c9a477af7f5f21",
+      "size_bytes": 10043684
+    },
+    {
+      "file": "DEBY_LOD3_4907518.gml",
+      "sha256": "cf7ed0abff8cf27064d240734e6de21d334ebf04e7dca3a12f377308ae545bb5",
+      "size_bytes": 3700309
+    },
+    {
+      "file": "DEBY_LOD3_4907520.gml",
+      "sha256": "e5de3f7c502677d7db19b9643a352e425559b4b6a60c72d3c8923b324b187a1c",
+      "size_bytes": 25243034
+    },
+    {
+      "file": "DEBY_LOD3_4907521.gml",
+      "sha256": "61d6fbe1799b98ec1bbad170946ac792283cfc069ee1684cfd578ff945338e6c",
+      "size_bytes": 25953323
+    },
+    {
+      "file": "DEBY_LOD3_4959321.gml",
+      "sha256": "f889b28101646ea9b109a74cb3b6b8d26a7eb00554613b1a8148bfa4038b2490",
+      "size_bytes": 8302603
+    },
+    {
+      "file": "DEBY_LOD3_4959322.gml",
+      "sha256": "2a3cef07987abf49b1a4cb671bfb6859fe3462a717f7e881ac33e43b47255b91",
+      "size_bytes": 9864712
+    },
+    {
+      "file": "DEBY_LOD3_4959323.gml",
+      "sha256": "a7b30f1596683837329e7b674e16d0dada2c98e3640092129d9092479a67ba37",
+      "size_bytes": 51178520
+    },
+    {
+      "file": "DEBY_LOD3_4959324.gml",
+      "sha256": "e4c354cb8125cea346b0444e1d23a7dbca7de1a94643e7ceae7be468da5002cc",
+      "size_bytes": 66269425
+    },
+    {
+      "file": "DEBY_LOD3_4959457.gml",
+      "sha256": "e9772d78a5da22e698ba0a873c5f39bfd7ef194b7a0ee91d646a93231cb2f342",
+      "size_bytes": 36779170
+    },
+    {
+      "file": "DEBY_LOD3_4959458.gml",
+      "sha256": "97442254b8bf8e80628d9a54d53519f551ffc121aeccb9e6fcdf9083f40d19ba",
+      "size_bytes": 17631330
+    },
+    {
+      "file": "DEBY_LOD3_4959460.gml",
+      "sha256": "723f9ad18f55ed63d15310656bdd67e38217ca2b4c2adc5b16edb34457627974",
+      "size_bytes": 174292255
+    },
+    {
+      "file": "DEBY_LOD3_4959462.gml",
+      "sha256": "53220c0777336fafb37bc73d3ea3c73dc21f0248a59f333fa072dc5612d59ed6",
+      "size_bytes": 8486629
+    },
+    {
+      "file": "DEBY_LOD3_60042.gml",
+      "sha256": "edf7bf18550a08d971e6c4d0ea3d07ec9739295e8ceed56730bcdd19edaeea21",
+      "size_bytes": 26035809
+    }
+  ]
+}

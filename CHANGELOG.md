@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-28
+
+- Download CityGML building data on demand for Helsinki, Munich, Montréal, Zürich and Lyon. Verify source checksums, show progress and allow cancellation. The archive cache lives in Godot's user data directory.
+- Combine measured CityGML buildings with OSM surroundings for a selected area. Show dataset coverage in Map Explorer and preserve source IDs and attribution in generated scenes.
+- Apply the shared attribute bank when baking every square. Saving an edited square refreshes appearance across the editable world and reports progress.
+- Save world bakes and their flight graphs in numbered folders under the world directory. Build the graph for a selected bake from the Spatial dock.
+- Draw and tune patrol zones in the editor. Flying patrols follow the graph, pursue the player and return to their zones. The HUD and minimap show nearby and off-screen patrols.
+- Default new drone rigs to Gamepad Flight with staged target capture. Hold L2 to aim, press Triangle to select a course and recenter the reticle, and use Cross to select a patrol. Press L3 and push forward for boost. Pitch inversion defaults to off.
+- Restore active Gamepad Flight controls when the game window regains focus. The left stick strafes while holding course.
+- Glide along the ground after contact and ease the chase camera toward the new flight angle.
+- Select World Style presets or an existing flight graph through Quick Load in the editor.
+
 ## [0.9.0] - 2026-11-27
 
 - Document the three drone controllers, camera and overview controls, and settings in the drone controls guide.

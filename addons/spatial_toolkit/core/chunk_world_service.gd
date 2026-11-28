@@ -6,13 +6,14 @@ const Bank := preload("res://addons/spatial_toolkit/core/spatial_attribute_bank.
 const ChunkInfo := preload("res://addons/spatial_toolkit/core/world_chunk_info.gd")
 const ChunkThumbnail := preload("res://addons/spatial_toolkit/core/chunk_thumbnail.gd")
 const MANIFEST := "world.json"
-const BANK_FILE := "attribute_bank.tres"
+const BANK_FILE := Bank.FILE_NAME
 const SCHEMA := 1
 
 var _world_path := ""
 var _revision := 0
 var _previous_index: Dictionary = {}
 var _previous_hash := ""
+var _citygml_progress_seen := false
 
 func create_world(sources: PackedStringArray, output_base: String, python_path: String,
 		chunk_size_m: float, settings: Dictionary, appearance_profile: Resource = null) -> Dictionary:
@@ -115,6 +116,7 @@ func _start_revision(inputs: PackedStringArray, python_path: String, options: Pa
 	args.append_array(options)
 	for path in inputs:
 		args.append_array(PackedStringArray(["--source", path]))
+	_citygml_progress_seen = false
 	var result := _launch(python_path, args, "generate")
 	if not result.get("ok", false):
 		DirAccess.remove_absolute(_job_dir)
@@ -305,11 +307,23 @@ func _on_phase_progress(phase: String, done: int, total: int) -> bool:
 		return false
 	if _building:
 		return true
+	if phase == "citygml":
+		_citygml_progress_seen = true
+	if _citygml_progress_seen:
+		_started_ms = Time.get_ticks_msec()
+	if phase == "citygml" and total > 0:
+		progress.emit(Localization.translate("Reading CityGML archive · %d%%") % done, float(done) / total)
+		return true
 	if phase == "partition":
 		if total > 0:
 			progress.emit(Localization.translate("Dividing into squares · %d / %d") % [done, total], float(done) / total)
 		return true
 	return super._on_phase_progress(phase, done, total)
+
+func _timeout_message() -> String:
+	if _citygml_progress_seen:
+		return Localization.translate("The CityGML worker did not report progress for 180 seconds.")
+	return super._timeout_message()
 
 func _show_scene_progress(done: int, total: int) -> void:
 	progress.emit(Localization.translate("Creating scenes · %d / %d") % [done, total], float(done) / total)

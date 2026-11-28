@@ -15,6 +15,7 @@ const STYLE_MODULE := preload("res://addons/spatial_toolkit/core/map_style_modul
 const FACADE_WINDOWS := preload("res://addons/spatial_toolkit/core/facade_windows.gd")
 const LAYER_TREE := preload("res://addons/spatial_toolkit/core/spatial_layers.gd")
 const FLIGHT_MODULE := preload("res://addons/spatial_toolkit/core/map_flight_module.gd")
+const FlightInput := preload("res://addons/spatial_toolkit/runtime/flight_input.gd")
 const CHUNK_INFO := preload("res://addons/spatial_toolkit/core/world_chunk_info.gd")
 const Localization := preload("res://addons/spatial_toolkit/ui/editor_localization.gd")
 var _target := Vector3.ZERO
@@ -269,6 +270,8 @@ func build_from_data(data: Dictionary, report: Dictionary = {}, options: Diction
 			instance.set_meta("base_floor_y_m", mesh_result["base_floor_y_m"])
 		if int(mesh_result["foundation_surface_index"]) >= 0:
 			instance.set_meta("foundation_surface_index", mesh_result["foundation_surface_index"])
+		if mesh_result.has("measured_opening_surfaces"):
+			instance.set_meta("measured_opening_surfaces", mesh_result["measured_opening_surfaces"])
 		for gameplay_key: String in ["source_dimensions_m", "game_dimensions_m", "facade_openings", "coincident_source_ids"]:
 			if entry.has(gameplay_key):
 				instance.set_meta(gameplay_key, entry[gameplay_key])
@@ -356,6 +359,8 @@ func _cancel_build() -> Dictionary:
 	return {"success": false, "cancelled": true}
 
 func _build_item_mesh(entry: Dictionary, material: Material) -> Dictionary:
+	if entry.has("measured_openings"):
+		return await _build_measured_opening_mesh(entry, material)
 	var vertices: Array = entry["vertices"]
 	var normals: Array = entry["normals"]
 	var openings: Dictionary = entry.get("facade_openings", {})
@@ -434,6 +439,48 @@ func _build_item_mesh(entry: Dictionary, material: Material) -> Dictionary:
 		foundation_index = mesh.get_surface_count() if mesh != null else 0
 		mesh = foundation_surface.commit(mesh)
 	return {"mesh": mesh, "floor_surface_index": floor_index, "foundation_surface_index": foundation_index, "base_floor_y_m": base_y}
+
+func _build_measured_opening_mesh(entry: Dictionary, wall_material: Material) -> Dictionary:
+	var measured: Dictionary = entry["measured_openings"]
+	var vertices: Array = entry["vertices"]
+	var normals: Array = entry["normals"]
+	var material_by_role: Array[Material] = [wall_material, _material("measured_window"), _material("measured_door")]
+	var tools: Array[SurfaceTool] = []
+	for surface_material in material_by_role:
+		var surface := SurfaceTool.new()
+		surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+		surface.set_material(surface_material)
+		tools.append(surface)
+	var triangle_roles := PackedByteArray()
+	triangle_roles.resize(vertices.size() / 3)
+	for role in range(1, tools.size()):
+		for index: Variant in measured.get("windows" if role == 1 else "doors", []):
+			triangle_roles[int(index)] = role
+	var used := [false, false, false]
+	var yield_after := Time.get_ticks_usec() + BUILD_FRAME_BUDGET_USEC
+	for triangle in triangle_roles.size():
+		var role := int(triangle_roles[triangle])
+		var surface := tools[role]
+		used[role] = true
+		for index in range(triangle * 3, triangle * 3 + 3):
+			var point: Array = vertices[index]
+			var normal: Array = normals[index]
+			surface.set_normal(Vector3(normal[0], normal[1], normal[2]))
+			surface.add_vertex(Vector3(point[0], point[1], point[2]))
+		if triangle % 256 == 255 and Time.get_ticks_usec() >= yield_after:
+			await get_tree().process_frame
+			yield_after = Time.get_ticks_usec() + BUILD_FRAME_BUDGET_USEC
+	var mesh := ArrayMesh.new()
+	var opening_surfaces := PackedInt32Array()
+	for role in tools.size():
+		if not used[role]:
+			continue
+		if role > 0:
+			opening_surfaces.append(mesh.get_surface_count())
+		tools[role].index()
+		tools[role].commit(mesh)
+	return {"mesh": mesh, "floor_surface_index": -1, "foundation_surface_index": -1,
+		"measured_opening_surfaces": opening_surfaces}
 
 func _valid_glazing_sample(sample: Variant) -> bool:
 	if not sample is Dictionary:
@@ -545,6 +592,19 @@ func _validate_item(value: Variant) -> String:
 	var normals: Array = entry["normals"]
 	if vertices.is_empty() or vertices.size() % 3 != 0 or vertices.size() != normals.size():
 		return "Triangle vertices and normals must have equal nonzero lengths divisible by three"
+	if entry.has("measured_openings"):
+		var measured: Variant = entry["measured_openings"]
+		if entry["layer"] != "Buildings" or openings.get("enabled", false) or not measured is Dictionary:
+			return "Modeled openings require a measured building mesh"
+		var seen := {}
+		for role: Variant in measured:
+			if role not in ["windows", "doors"] or not measured[role] is Array:
+				return "Modeled openings must list window and door triangles"
+			for index: Variant in measured[role]:
+				if not _finite_number(index) or index < 0 or index >= vertices.size() / 3 \
+						or float(index) != floorf(float(index)) or seen.has(int(index)):
+					return "Invalid modeled opening triangle index"
+				seen[int(index)] = true
 	for vectors: Array in [vertices, normals]:
 		for vector: Variant in vectors:
 			if not vector is Array or vector.size() != 3:
@@ -582,6 +642,8 @@ func _material(style: String) -> StandardMaterial3D:
 		"building_height_tag": Color("e9cf9c"),
 		"building_levels_estimate": Color("e0dbcf"),
 		"building_default_estimate": Color("83a9bd"),
+		"measured_window": Color("53717d"),
+		"measured_door": Color("58544f"),
 		"road_existing": Color("46505a"),
 		"road_path": Color("d5c19c"),
 		"road_proposed": Color("df8a4b"),
@@ -697,6 +759,7 @@ func _enter_tree() -> void:
 func _ready() -> void:
 	if Engine.is_editor_hint():
 		return
+	FlightInput.ensure_actions()
 	_setup_scene_style.call_deferred()
 	if not scene_file_path.is_empty() and not has_node("RoadPatrols"):
 		_start_legacy_patrols.call_deferred()
@@ -891,15 +954,15 @@ func _process(delta: float) -> void:
 	if camera == null or not camera.current:
 		return
 	var axes := Vector2(
-		float(Input.is_physical_key_pressed(KEY_D)) - float(Input.is_physical_key_pressed(KEY_A)),
-		float(Input.is_physical_key_pressed(KEY_W)) - float(Input.is_physical_key_pressed(KEY_S)))
+		Input.get_axis(&"map_pan_left", &"map_pan_right"),
+		Input.get_axis(&"map_pan_backward", &"map_pan_forward"))
 	if axes != Vector2.ZERO:
 		_pan_overview(camera, axes, delta)
 
 func _pan_overview(camera: Camera3D, axes: Vector2, delta: float) -> void:
 	var lateral := Vector3(cos(_yaw), 0.0, -sin(_yaw))
 	var forward := Vector3(-sin(_yaw), 0.0, -cos(_yaw))
-	var direction := axes.normalized()
+	var direction := axes.limit_length()
 	_target += (lateral * direction.x + forward * direction.y) * camera.size * OVERVIEW_PAN_RATE * delta
 	_update_camera()
 
@@ -910,29 +973,27 @@ func _unhandled_input(event: InputEvent) -> void:
 	if camera == null:
 		return
 	# A scene may supply a first-person camera; only the active overview owns orbit input.
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_H:
+	if FlightInput.event_pressed(event, &"map_toggle_legend"):
 		var legend := get_node_or_null("PreviewLegend/Legend") as Control
 		if legend != null:
 			legend.visible = not legend.visible
 		return
 	if not camera.current:
 		return
-	if event is InputEventKey and event.pressed and not event.echo:
-		if event.keycode == KEY_HOME:
-			reset_view()
-		elif event.keycode == KEY_F:
-			focus_buildings()
-	if event is InputEventMouseButton and event.pressed:
-		if event.button_index == MOUSE_BUTTON_WHEEL_UP:
-			camera.size = maxf(1.0, camera.size * 0.88)
-		elif event.button_index == MOUSE_BUTTON_WHEEL_DOWN:
-			camera.size = minf(camera.far, camera.size / 0.88)
-	if event is InputEventMouseMotion:
-		if event.button_mask & MOUSE_BUTTON_MASK_RIGHT:
+	if FlightInput.event_pressed(event, &"map_frame_map"):
+		reset_view()
+	elif FlightInput.event_pressed(event, &"map_frame_buildings"):
+		focus_buildings()
+	elif FlightInput.event_pressed(event, &"map_zoom_in"):
+		camera.size = maxf(1.0, camera.size * 0.88)
+	elif FlightInput.event_pressed(event, &"map_zoom_out"):
+		camera.size = minf(camera.far, camera.size / 0.88)
+	elif event is InputEventMouseMotion:
+		if FlightInput.mouse_drag(event, &"map_orbit_drag"):
 			_yaw -= event.relative.x * 0.006
 			_pitch = clampf(_pitch + event.relative.y * 0.006, 0.18, 1.5)
 			_update_camera()
-		elif event.button_mask & MOUSE_BUTTON_MASK_MIDDLE:
+		elif FlightInput.mouse_drag(event, &"map_pan_drag"):
 			var scale_m: float = camera.size / maxf(1, get_viewport().get_visible_rect().size.y)
 			_target += (-camera.global_basis.x * event.relative.x + camera.global_basis.y * event.relative.y) * scale_m
 			_target.y = 0

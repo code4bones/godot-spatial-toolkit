@@ -80,7 +80,10 @@ static func _apply_mesh(mesh: MeshInstance3D, kind: String, settings: Dictionary
 	if mesh.material_override != null:
 		_apply_slot(mesh, "material_override", mesh.material_override, kind, settings, scale_factor, cache)
 		return
+	var modeled_openings: PackedInt32Array = mesh.get_meta("measured_opening_surfaces", PackedInt32Array())
 	for index in mesh.mesh.get_surface_count():
+		if index in modeled_openings:
+			continue
 		var active := mesh.get_active_material(index)
 		var overrides := settings
 		if kind == "Buildings" and index == int(mesh.get_meta("foundation_surface_index", -1)):

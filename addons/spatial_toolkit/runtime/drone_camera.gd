@@ -14,6 +14,31 @@ const LAUNCH_SOUND_PATH := "res://addons/spatial_toolkit/assets/audio/rocket_lau
 const PROJECTILE := preload("res://addons/spatial_toolkit/runtime/drone_projectile.tscn")
 const Projectile := preload("res://addons/spatial_toolkit/runtime/drone_projectile.gd")
 const RETICLE := preload("res://addons/spatial_toolkit/runtime/drone_reticle.gd")
+const TargetLock := preload("res://addons/spatial_toolkit/runtime/drone_target_lock.gd")
+const StagedTargetLock := preload("res://addons/spatial_toolkit/runtime/drone_staged_target_lock.gd")
+const TargetLockHud := preload("res://addons/spatial_toolkit/runtime/drone_target_lock_hud.gd")
+const ThreatHud := preload("res://addons/spatial_toolkit/runtime/drone_threat_hud.gd")
+const GAMEPAD_TRIGGER_RELEASE := 0.30
+const SHOT_DELAY_SECONDS := 0.2
+const TARGET_CONFIRM_ACTION := &"flight_target_confirm"
+
+enum TargetLockMode { CONTROLLER_DEFAULT, CLASSIC_TIMING, STAGED }
+
+class DelayedShot:
+	var aim: Vector3
+	var guided_target: SpatialFlyingPatrol
+	var remaining := SHOT_DELAY_SECONDS
+
+	func _init(aim_point: Vector3, patrol: SpatialFlyingPatrol) -> void:
+		aim = aim_point
+		guided_target = patrol
+
+const GAMEPAD_MOVE_ACTIONS: Array[StringName] = [
+	&"flight_move_left", &"flight_move_right", &"flight_move_forward", &"flight_move_backward",
+]
+const GAMEPAD_LOOK_ACTIONS: Array[StringName] = [
+	&"flight_look_left", &"flight_look_right", &"flight_look_up", &"flight_look_down",
+]
 
 @export_range(10, 180, 1) var turn_speed_degrees: float = 75.0
 @export_range(0.05, 1.0, 0.01) var camera_lag_seconds: float = 0.22
@@ -34,6 +59,31 @@ const RETICLE := preload("res://addons/spatial_toolkit/runtime/drone_reticle.gd"
 
 @export_range(1.0, 50.0, 0.5) var crash_impact_speed_mps := 8.0
 @export_range(0.5, 5.0, 0.1) var crash_respawn_delay_seconds := 1.5
+
+@export_group("Target Lock", "target_lock_")
+## Gamepad Flight uses staged capture by default. Classic uses the continuous timing round.
+@export var target_lock_mode: TargetLockMode = TargetLockMode.CONTROLLER_DEFAULT
+## The time to return to a LOCKED patrol and confirm its second window in staged mode.
+@export_range(0.5, 45.0, 0.1, "suffix:s") var target_lock_locked_duration_seconds := 8.0
+## The time to fire after reaching READY in staged mode.
+@export_range(0.5, 45.0, 0.1, "suffix:s") var target_lock_ready_duration_seconds := 5.0
+## Timing arc multiplier. At 0.5×, each arc lasts 3.2 seconds.
+@export_range(0.25, 2.0, 0.05, "suffix:×") var target_lock_progress_speed := 0.5:
+	set(value):
+		target_lock_progress_speed = clampf(value, 0.25, 2.0) if is_finite(value) else 0.5
+## Width of the segment that grants LOCKED in staged mode, as a percentage of the arc.
+@export_range(5.0, 35.0, 1.0, "suffix:%") var target_lock_first_window_width := 21.0
+## Width of the segment that grants READY in staged mode, as a percentage of the arc.
+@export_range(5.0, 35.0, 1.0, "suffix:%") var target_lock_second_window_width := 20.0
+## Played once when SEARCH appears.
+@export var target_lock_search_audio: AudioStream
+## Played when the first timing window acquires the target.
+@export var target_lock_locked_audio: AudioStream
+## Played when the second timing window readies a staged shot.
+@export var target_lock_ready_audio: AudioStream
+## Played when a shot is accepted, before the rocket launches.
+@export var target_lock_fired_audio: AudioStream
+@export_range(-80.0, 6.0, 0.5, "suffix:dB") var target_lock_audio_volume_db := -6.0
 
 @export_group("Camera Framing")
 ## Vertical shift as a percentage of the viewport height in third person.
@@ -57,12 +107,22 @@ const RETICLE := preload("res://addons/spatial_toolkit/runtime/drone_reticle.gd"
 ## Leave empty to use the bundled rocket impact sound.
 @export var impact_audio: AudioStream
 @export_range(-80.0, 6.0, 0.5, "suffix:dB") var impact_volume_db := -6.0
+@export_group("Gamepad")
+## Pushing the stick forward pitches the nose down when enabled.
+@export var gamepad_invert_pitch := false
+## Minimum stick deflection required before steering or aiming.
+@export_range(0.05, 0.45, 0.01) var gamepad_stick_deadzone := 0.18
+## Virtual aim speed as a fraction of the shorter viewport side per second.
+@export_range(0.25, 2.0, 0.05) var gamepad_pointer_speed := 0.9
+## Rate of cruise speed change from the gamepad.
+@export_range(1.0, 100.0, 1.0, "suffix:m/s²") var gamepad_cruise_rate_mps2 := 18.0
 @export_group("")
 
 var _launch_sound_stream: AudioStream
 var _throttle_sound: AudioStreamPlayer3D
 var _engine_sound: AudioStreamPlayer3D
 var _flight_ground: StaticBody3D
+var _ground_contact_normal := Vector3.ZERO
 var _crash_burst: CPUParticles3D
 var _respawn_remaining := 0.0
 var _spawn_position := Vector3.ZERO
@@ -80,6 +140,7 @@ var _pointer := Vector2.ZERO
 var _pending_click := false
 var _pending_shot := false
 var _pending_aim := Vector2.ZERO
+var _delayed_shots: Array[DelayedShot] = []
 var _edge_steering_armed := true
 var _free_look := false
 var _orbit_yaw := 0.0
@@ -88,7 +149,18 @@ var _detached_pivot := false
 var _follow_velocity := Vector3.ZERO
 var _follow_last_position := Vector3.ZERO
 var _reticle: Control
+var _threat_hud: ThreatHud
+var _target_lock: TargetLock
+var _target_lock_hud: TargetLockHud
+var _target_lock_sound: AudioStreamPlayer
+var _target_cycle_step := 0
+var _target_pick_requested := false
+var _target_confirm_requested := false
+var _staged_fire_requested := false
 var _authored_camera_pitch := 0.0
+var _gamepad_device := -1
+var _gamepad_aim_active := false
+var _gamepad_trigger_down := false
 
 func _validate_property(property: Dictionary) -> void:
 	Localization.localize_inspector_group(property)
@@ -108,6 +180,7 @@ func _ready() -> void:
 		_flight_active = false
 		return
 	get_viewport().size_changed.connect(_update_chase_framing)
+	Input.joy_connection_changed.connect(_on_gamepad_connection_changed)
 	_drone_yaw = _pivot.global_rotation.y
 	_drone_pitch = _pivot.global_rotation.x
 	_spawn_position = _body.global_position
@@ -119,6 +192,9 @@ func _ready() -> void:
 	_detached_pivot = true
 	_follow_last_position = _body.global_position
 	_pointer = get_viewport().get_visible_rect().size * 0.5
+	_threat_hud = ThreatHud.new()
+	_threat_hud.name = "ThreatHud"
+	_flight_overlay.add_child(_threat_hud)
 	_reticle = Control.new()
 	_reticle.set_script(RETICLE)
 	_reticle.set("camera", self)
@@ -132,21 +208,50 @@ func _exit_tree() -> void:
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 		Input.set_default_cursor_shape(Input.CURSOR_ARROW)
 
+func _process(delta: float) -> void:
+	if _threat_hud == null:
+		return
+	if not current or _respawn_remaining > 0.0 or not is_instance_valid(_body):
+		_threat_hud.clear()
+		return
+	var viewport := get_viewport()
+	var contacts: Array[SpatialPatrolManager.ThreatIndicator] = []
+	for node in get_tree().get_nodes_in_group(SpatialPatrolManager.PURSUIT_GROUP):
+		var manager := node as SpatialPatrolManager
+		if manager != null and manager.get_viewport() == viewport:
+			contacts.append_array(manager.threat_indicators(_body))
+	if contacts.is_empty():
+		_threat_hud.clear()
+		return
+	var center := viewport.get_visible_rect().get_center()
+	var radius := 58.0
+	if third_person and is_instance_valid(_craft) and _craft.is_visible_in_tree():
+		var ship_position := _craft.get_global_transform_interpolated().origin
+		if not is_position_behind(ship_position):
+			center = unproject_position(ship_position)
+			var edge := ship_position + global_basis.x.normalized() * 0.45
+			radius = clampf(center.distance_to(unproject_position(edge)) + 22.0, 58.0, 122.0)
+	_threat_hud.update_display(center, radius, _body.get_global_transform_interpolated().origin,
+		get_global_transform_interpolated().basis, contacts, delta)
+
 func _physics_process(delta: float) -> void:
 	# SpringArm still resolves collisions while flight is paused or in overview.
 	# Update before the early return so a retracted camera never keeps a large
 	# outdoor near plane merely because movement input is inactive.
 	if not _flight_controls_ready(delta):
 		return
-	var pitch := _pitch_input()
-	var yaw := float(Input.is_physical_key_pressed(KEY_D)) - float(Input.is_physical_key_pressed(KEY_A))
-	var vertical := float(Input.is_physical_key_pressed(KEY_E)) - float(Input.is_physical_key_pressed(KEY_Q))
+	_update_gamepad_cruise(delta)
+	_update_gamepad_pointer(delta)
+	var stick := _gamepad_stick(GAMEPAD_MOVE_ACTIONS)
+	var pitch := clampf(_pitch_input() + _gamepad_pitch(stick.y), -1.0, 1.0)
+	var keyboard_yaw := _keyboard_movement().x
+	var yaw := clampf(keyboard_yaw + stick.x, -1.0, 1.0)
 	var selected_destination := _handle_pending_click()
 	var previous_attitude := Vector2(_drone_yaw, _drone_pitch)
-	if not _free_look:
+	if not _free_look and not _gamepad_aim_active:
 		_steer_at_edge(_edge_input(_pointer, get_viewport().get_visible_rect().size), delta)
-	if pitch != 0 or yaw != 0 or vertical != 0 or (not _has_destination and not is_zero_approx(_cruise_speed_mps)):
-		_manual_step(pitch, yaw, _cruise_speed_mps, delta, vertical)
+	if pitch != 0 or yaw != 0 or (not _has_destination and not is_zero_approx(_cruise_speed_mps)):
+		_manual_step(pitch, yaw, _cruise_speed_mps, delta)
 	else:
 		_flight_step(delta)
 	var yaw_step := angle_difference(previous_attitude.x, _drone_yaw)
@@ -155,23 +260,28 @@ func _physics_process(delta: float) -> void:
 	_classic_bank = lerpf(_classic_bank, bank_target, 1.0 - exp(-delta * 9.0))
 	_set_craft_attitude(_classic_bank)
 	_set_exhaust_turn(_classic_bank / MAX_BANK * 0.45)
-	var demand := maxf(absf(pitch), maxf(absf(yaw), absf(vertical))) if not selected_destination else 1.0
+	var demand := maxf(absf(pitch), absf(yaw)) if not selected_destination else 1.0
 	_update_maneuver_exhaust(demand, previous_attitude, delta)
 	_follow_camera(delta)
 	_update_reticle()
+	_update_target_lock(delta)
 
 func _flight_controls_ready(delta: float) -> bool:
 	if Engine.is_editor_hint():
 		return false
 	_update_near_plane()
 	if _respawn_remaining > 0.0:
+		_clear_target_lock()
 		_respawn_remaining = maxf(0.0, _respawn_remaining - delta)
 		if is_zero_approx(_respawn_remaining):
 			_respawn_drone()
 		return false
 	if not current or not _flight_active or _body == null:
+		_clear_target_lock()
+		_delayed_shots.clear()
 		_stop_body()
 		return false
+	_update_delayed_shots(delta)
 	return true
 
 func _install_flight_ground() -> void:
@@ -200,7 +310,7 @@ func _install_flight_ground() -> void:
 	add_child(_flight_ground)
 	_flight_ground.global_transform = Transform3D(ground.global_basis.orthonormalized(), ground.to_global(surface))
 
-func _manual_step(pitch_input: float, yaw_input: float, forward_speed: float, delta: float, vertical_input: float = 0.0) -> void:
+func _manual_step(pitch_input: float, yaw_input: float, forward_speed: float, delta: float) -> void:
 	if _take_manual_control():
 		forward_speed = _cruise_speed_mps
 	_cancel_destination()
@@ -208,23 +318,25 @@ func _manual_step(pitch_input: float, yaw_input: float, forward_speed: float, de
 	_drone_pitch = clampf(_drone_pitch + pitch_input * turn, deg_to_rad(-80), deg_to_rad(80))
 	_drone_yaw -= yaw_input * turn
 	var signed_speed := clampf(forward_speed, -reverse_speed_limit_mps, forward_speed_limit_mps)
-	var velocity := _forward() * signed_speed + Vector3.UP * clampf(vertical_input, -1, 1) * speed_mps
-	_move_drone(velocity.limit_length(maxf(absf(signed_speed), speed_mps)))
+	_move_drone(_forward() * signed_speed)
 	_set_craft_attitude(_classic_bank)
 
 func _pitch_input() -> float:
-	var pitch := float(Input.is_physical_key_pressed(KEY_W)) - float(Input.is_physical_key_pressed(KEY_S))
+	var pitch := -_keyboard_movement().y
 	var inverted := bool(ProjectSettings.get_setting(INVERT_WS_SETTING, false))
 	if _body != null and _body.has_method("is_pitch_input_inverted"):
 		inverted = bool(_body.call("is_pitch_input_inverted"))
 	return -pitch if inverted else pitch
 
 func _adjust_cruise_speed(notches: float) -> void:
+	_change_cruise_speed(notches * wheel_step_mps)
+
+func _change_cruise_speed(change_mps: float, pulse_exhaust := true) -> void:
 	var previous_speed := absf(_cruise_speed_mps)
-	_cruise_speed_mps = clampf(_cruise_speed_mps + notches * wheel_step_mps, -reverse_speed_limit_mps, forward_speed_limit_mps)
+	_cruise_speed_mps = clampf(_cruise_speed_mps + change_mps, -reverse_speed_limit_mps, forward_speed_limit_mps)
 	if absf(_cruise_speed_mps) > previous_speed:
 		_play_throttle_sound()
-		if _craft != null:
+		if pulse_exhaust and _craft != null:
 			for child in _craft.get_children():
 				if child is EXHAUST_TRAIL:
 					child.boost()
@@ -337,29 +449,53 @@ func _flight_step(delta: float) -> void:
 func _move_drone(velocity: Vector3) -> void:
 	if _body == null:
 		return
+	_ground_contact_normal = Vector3.ZERO
 	_body.velocity = velocity
 	_body.move_and_slide()
 	var impact: KinematicCollision3D
 	var impact_speed := 0.0
-	var hit_surface := false
+	var ground_normal := Vector3.ZERO
+	var ground_impact_speed := 0.0
+	var hit_steep_terrain := false
 	for index in _body.get_slide_collision_count():
 		var contact := _body.get_slide_collision(index)
-		var speed := -velocity.dot(contact.get_normal())
+		var normal := contact.get_normal()
+		var speed := -velocity.dot(normal)
 		if speed <= 0.0:
 			continue
-		hit_surface = true
 		var collider := contact.get_collider() as Node
 		if collider != null and (collider == _flight_ground or collider.is_in_group(&"spatial_terrain")):
+			if normal.y >= maxf(0.001, cos(_body.floor_max_angle)):
+				if speed > ground_impact_speed:
+					ground_normal = normal
+					ground_impact_speed = speed
+			else:
+				hit_steep_terrain = true
 			continue
 		if speed > impact_speed:
 			impact = contact
 			impact_speed = speed
 	if impact != null and impact_speed >= crash_impact_speed_mps:
 		_crash(impact.get_position(), impact.get_normal())
-	elif hit_surface:
+	elif impact != null or hit_steep_terrain:
 		_cruise_speed_mps = 0.0
 		_cancel_destination()
 		_stop_body()
+	elif not ground_normal.is_zero_approx():
+		_glide_along_ground(velocity, ground_normal)
+
+func _glide_along_ground(velocity: Vector3, normal: Vector3) -> void:
+	var course := _forward().slide(normal)
+	# A vertical dive has no forward projection on flat ground.
+	if course.is_zero_approx():
+		course = _map_heading().slide(normal)
+	course = course.normalized()
+	_drone_yaw = atan2(-course.x, -course.z)
+	_drone_pitch = asin(clampf(course.y, -1.0, 1.0))
+	_ground_contact_normal = normal
+	_cancel_destination()
+	var slide := velocity.slide(normal)
+	_body.velocity = course * _cruise_speed_mps if slide.is_zero_approx() else slide
 
 func _crash(point: Vector3, normal: Vector3) -> void:
 	_respawn_remaining = crash_respawn_delay_seconds
@@ -398,6 +534,9 @@ func _respawn_drone() -> void:
 func _set_craft_attitude(bank: float, pitch_lead: float = 0.0) -> void:
 	if _craft == null:
 		return
+	if not _ground_contact_normal.is_zero_approx():
+		_craft.global_basis = Basis.looking_at(_forward(), _ground_contact_normal)
+		return
 	var attitude := Basis.from_euler(Vector3(_drone_pitch + pitch_lead, _drone_yaw, bank))
 	# Tip the top toward the chase view as the ship rolls onto its wing.
 	_craft.global_basis = attitude * Basis(Vector3.RIGHT, absf(bank) * 0.48)
@@ -406,26 +545,53 @@ func _handle_pending_click() -> bool:
 	if not _pending_click:
 		return false
 	_pending_click = false
-	var pick := _pick_destination(_pending_aim)
 	if _pending_shot:
 		_pending_shot = false
-		_fire_projectile(pick["aim"])
+		if _uses_staged_target_lock():
+			_staged_fire_requested = true
+			return false
+		var guided_target: SpatialFlyingPatrol
+		if _target_lock != null:
+			match _target_lock.handle_fire_click(_pending_aim, self, destination_collision_mask):
+				TargetLock.ClickResult.CONSUMED:
+					return false
+				TargetLock.ClickResult.FIRE:
+					guided_target = _target_lock.take_firing_target()
+		_queue_delayed_shot(_pick_destination(_pending_aim)["aim"], guided_target)
 		return false
+	var pick := _pick_destination(_pending_aim)
 	_set_destination(pick["position"], str(pick["kind"]))
 	_play_throttle_sound()
 	return true
 
-func _fire_projectile(target: Vector3) -> void:
+func _queue_delayed_shot(aim: Vector3, patrol: SpatialFlyingPatrol) -> void:
+	_delayed_shots.append(DelayedShot.new(aim, patrol))
+	_play_target_lock_sound(target_lock_fired_audio)
+
+func _update_delayed_shots(delta: float) -> void:
+	for shot in _delayed_shots:
+		shot.remaining -= delta
+	while not _delayed_shots.is_empty() and _delayed_shots.front().remaining <= 0.000001:
+		var shot: DelayedShot = _delayed_shots.pop_front()
+		var patrol := shot.guided_target
+		if not is_instance_valid(patrol) or patrol.is_queued_for_deletion() or not patrol.active:
+			patrol = null
+		_fire_projectile(shot.aim, patrol)
+
+func _fire_projectile(target: Vector3, guided_target: SpatialFlyingPatrol = null) -> void:
 	var muzzle := _body.global_position + Vector3.UP * (_eye_height - 0.16) + _forward() * 0.27
 	if _craft != null:
 		var mount := _craft.get_node_or_null("RocketMount") as Marker3D
 		if mount != null:
 			muzzle = mount.global_position
+	var inherited := Vector3.ZERO if _body.velocity.is_zero_approx() else _body.get_real_velocity()
 	var direction := (target - muzzle).normalized()
+	if direction.is_zero_approx() and is_instance_valid(guided_target):
+		direction = (guided_target.global_position - muzzle).normalized()
 	if direction.is_zero_approx():
 		return
-	var inherited := Vector3.ZERO if _body.velocity.is_zero_approx() else _body.get_real_velocity()
 	var projectile := PROJECTILE.instantiate() as Projectile
+	projectile.guided_target = guided_target
 	projectile.velocity = Projectile.aimed_velocity(direction, inherited)
 	projectile.launch_speed = maxf(0.0, inherited.dot(direction)) + Projectile.LAUNCH_LEAD_MPS
 	projectile.collision_mask = destination_collision_mask
@@ -435,9 +601,91 @@ func _fire_projectile(target: Vector3) -> void:
 	add_child(projectile, true)
 	var up := Vector3.RIGHT if absf(direction.y) > 0.99 else Vector3.UP
 	projectile.global_transform = Transform3D(Basis.looking_at(direction, up), muzzle)
+	projectile.prepare_target(inherited)
 	projectile.reset_physics_interpolation()
-	projectile.prepare_target()
 	_play_launch_sound(muzzle)
+
+func _update_target_lock(delta: float) -> void:
+	var staged_mode := _uses_staged_target_lock()
+	if _free_look and not staged_mode:
+		_clear_target_lock()
+		return
+	_ensure_target_lock(staged_mode)
+	if staged_mode:
+		_update_staged_target_lock(_target_lock as StagedTargetLock, delta)
+		return
+	var switched := (_target_pick_requested and _target_lock.select_pointer_target(self, _pointer, destination_collision_mask)) \
+		or (_target_cycle_step != 0 and _target_lock.cycle_visible_target(self, destination_collision_mask, _target_cycle_step))
+	_target_cycle_step = 0
+	_target_pick_requested = false
+	if switched or _target_lock.update(self, _pointer, destination_collision_mask, delta, target_lock_progress_speed):
+		_target_lock_hud.update_display(_target_lock.center, _target_lock.radius,
+			_target_lock.elapsed_fraction, TargetLock.WINDOW_FRACTIONS, _target_lock.completed_windows,
+			_target_lock.locked, _target_lock.searching)
+	else:
+		_target_lock_hud.hide()
+
+func _uses_staged_target_lock() -> bool:
+	return target_lock_mode == TargetLockMode.STAGED or (
+		target_lock_mode == TargetLockMode.CONTROLLER_DEFAULT and _defaults_to_staged_target_lock())
+
+func _defaults_to_staged_target_lock() -> bool:
+	return false
+
+func _ensure_target_lock(staged_mode: bool) -> void:
+	if _target_lock != null and (_target_lock is StagedTargetLock) == staged_mode:
+		return
+	if staged_mode:
+		var staged := StagedTargetLock.new(_body.get_rid())
+		staged.target_ready.connect(func() -> void: _play_target_lock_sound(target_lock_ready_audio))
+		_target_lock = staged
+	else:
+		_target_lock = TargetLock.new(_body.get_rid())
+	_target_lock.search_started.connect(func() -> void: _play_target_lock_sound(target_lock_search_audio))
+	_target_lock.target_locked.connect(func() -> void: _play_target_lock_sound(target_lock_locked_audio))
+	if _target_lock_hud == null:
+		_target_lock_hud = TargetLockHud.new()
+		_target_lock_hud.name = "TargetLockHud"
+		_flight_overlay.add_child(_target_lock_hud)
+
+func _update_staged_target_lock(staged: StagedTargetLock, delta: float) -> void:
+	var window_widths := Vector2(target_lock_first_window_width, target_lock_second_window_width) * 0.01
+	staged.advance(self, _pointer, destination_collision_mask, delta, target_lock_progress_speed,
+		not _free_look, _target_cycle_step, window_widths, _target_pick_requested)
+	_target_cycle_step = 0
+	_target_pick_requested = false
+	if _target_confirm_requested and not _free_look:
+		staged.confirm_window(_pointer, maxf(0.05, target_lock_locked_duration_seconds),
+			maxf(0.05, target_lock_ready_duration_seconds))
+	_target_confirm_requested = false
+	if _staged_fire_requested:
+		var patrol := staged.take_ready_target()
+		if patrol != null:
+			_queue_delayed_shot(patrol.global_position, patrol)
+	_staged_fire_requested = false
+	var statuses := staged.display_statuses(self, destination_collision_mask)
+	_target_lock_hud.update_staged_display(staged.center, staged.radius, staged.elapsed_fraction, staged.timing_window,
+		staged.timing, not _free_look and staged.showing_search, statuses["markers"], statuses["unseen_status"])
+
+func _clear_target_lock() -> void:
+	_target_cycle_step = 0
+	_target_pick_requested = false
+	_target_confirm_requested = false
+	_staged_fire_requested = false
+	if _target_lock != null:
+		_target_lock.clear()
+		_target_lock_hud.hide()
+
+func _play_target_lock_sound(stream: AudioStream) -> void:
+	if stream == null:
+		return
+	if _target_lock_sound == null:
+		_target_lock_sound = AudioStreamPlayer.new()
+		_target_lock_sound.name = "TargetLockSound"
+		add_child(_target_lock_sound)
+	_target_lock_sound.stream = stream
+	_target_lock_sound.volume_db = target_lock_audio_volume_db
+	_target_lock_sound.play()
 
 func _play_launch_sound(muzzle: Vector3) -> void:
 	if _launch_sound_stream == null:
@@ -517,7 +765,7 @@ func _follow_camera(delta: float) -> void:
 	var desired := predicted.lerp(eye, weight)
 	var offset := (desired - eye).limit_length(follow_distance * 0.75) if third_person else Vector3.ZERO
 	# Keep most positional lag along the view axis. Large sideways/upward lag
-	# throws a nearby miniature ship out of frame during Q/E movement.
+	# throws a nearby miniature ship out of frame during vertical movement.
 	var view_axis := -_pivot.global_basis.z.normalized()
 	var along_view := view_axis * offset.dot(view_axis)
 	var framing_margin := minf(0.15, maxf(0.02, _boom.get_hit_length() * 0.05))
@@ -590,64 +838,268 @@ func _update_near_plane() -> void:
 			safe_near = close
 	near = safe_near
 
-func _unhandled_input(event: InputEvent) -> void:
-	if Engine.is_editor_hint():
+func _fires_on_left_click(space_held: bool) -> bool:
+	return not space_held
+
+func _has_lift_controls() -> bool:
+	return false
+
+func _gamepad_uses_virtual_pointer() -> bool:
+	return true
+
+func _gamepad_can_select_destination() -> bool:
+	return true
+
+func _gamepad_pitch(vertical_axis: float) -> float:
+	return vertical_axis if gamepad_invert_pitch else -vertical_axis
+
+func _keyboard_movement() -> Vector2:
+	return _keyboard_vector(GAMEPAD_MOVE_ACTIONS)
+
+func _keyboard_vector(actions: Array[StringName]) -> Vector2:
+	return Vector2(
+		FlightInput.keyboard_mouse_strength(actions[1]) - FlightInput.keyboard_mouse_strength(actions[0]),
+		FlightInput.keyboard_mouse_strength(actions[3]) - FlightInput.keyboard_mouse_strength(actions[2]))
+
+func _lift_input() -> float:
+	return _flight_action_strength(&"flight_lift_up") - _flight_action_strength(&"flight_lift_down")
+
+func _look_input() -> Vector2:
+	return (_keyboard_vector(GAMEPAD_LOOK_ACTIONS) + _gamepad_stick(GAMEPAD_LOOK_ACTIONS)).limit_length()
+
+func _gamepad_stick(actions: Array[StringName], linear_horizontal := false) -> Vector2:
+	if _gamepad_device < 0:
+		return Vector2.ZERO
+	var axes := Vector2(
+		FlightInput.joy_strength(actions[1], _gamepad_device) - FlightInput.joy_strength(actions[0], _gamepad_device),
+		FlightInput.joy_strength(actions[3], _gamepad_device) - FlightInput.joy_strength(actions[2], _gamepad_device))
+	var strength := axes.length()
+	var deadzone := gamepad_stick_deadzone
+	if not is_zero_approx(axes.x):
+		deadzone = maxf(deadzone, InputMap.action_get_deadzone(actions[0 if axes.x < 0.0 else 1]))
+	if not is_zero_approx(axes.y):
+		deadzone = maxf(deadzone, InputMap.action_get_deadzone(actions[2 if axes.y < 0.0 else 3]))
+	if strength <= deadzone or deadzone >= 1.0:
+		return Vector2.ZERO
+	var response := clampf(inverse_lerp(deadzone, 1.0, strength), 0.0, 1.0)
+	var curved := pow(response, 1.5)
+	return axes.normalized() * Vector2(response if linear_horizontal else curved, curved)
+
+func _gamepad_action_strength(action: StringName) -> float:
+	return FlightInput.joy_strength(action, _gamepad_device) if _gamepad_device >= 0 else 0.0
+
+func _flight_action_down(action: StringName) -> bool:
+	return _flight_action_strength(action) > 0.0
+
+func _flight_action_strength(action: StringName) -> float:
+	var joy := _gamepad_action_strength(action)
+	var active_joy := joy if joy > InputMap.action_get_deadzone(action) else 0.0
+	return maxf(FlightInput.keyboard_mouse_strength(action), active_joy)
+
+func _uses_gamepad_cruise() -> bool:
+	return true
+
+func _update_gamepad_cruise(delta: float) -> void:
+	var confirm := _uses_staged_target_lock() and _flight_action_down(TARGET_CONFIRM_ACTION)
+	var change := float(not confirm and _flight_action_down(&"flight_cruise_increase")) - float(_flight_action_down(&"flight_cruise_decrease"))
+	if not is_zero_approx(change):
+		_change_cruise_speed(change * gamepad_cruise_rate_mps2 * delta)
+
+func _update_gamepad_pointer(delta: float) -> void:
+	if _free_look:
 		return
-	if event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_TAB:
+	var keys := _keyboard_vector(GAMEPAD_LOOK_ACTIONS)
+	var stick := (keys + (_gamepad_stick(GAMEPAD_LOOK_ACTIONS) if _gamepad_aim_active else Vector2.ZERO)).limit_length()
+	if stick.is_zero_approx():
+		return
+	if not _gamepad_aim_active:
+		_use_gamepad_aim(_gamepad_device)
+	var bounds := get_viewport().get_visible_rect()
+	var pixels_per_second := minf(bounds.size.x, bounds.size.y) * gamepad_pointer_speed
+	_pointer = (_pointer + stick * pixels_per_second * delta).clamp(bounds.position,
+		(bounds.end - Vector2.ONE).max(bounds.position))
+	if _target_lock != null:
+		_target_lock.pointer_moved(_pointer)
+
+func _use_gamepad_aim(device: int) -> void:
+	if _gamepad_device != device:
+		_gamepad_device = device
+		_gamepad_trigger_down = false
+	if not _gamepad_aim_active and _gamepad_uses_virtual_pointer() and _flight_active and not _free_look:
+		Input.mouse_mode = Input.MOUSE_MODE_HIDDEN if OS.has_feature("web") else Input.MOUSE_MODE_CONFINED_HIDDEN
+	_gamepad_aim_active = true
+
+func _use_mouse_aim() -> void:
+	if _gamepad_aim_active and _gamepad_uses_virtual_pointer() and _flight_active and not _free_look:
+		Input.mouse_mode = _pointer_mouse_mode()
+	_gamepad_aim_active = false
+
+func _on_gamepad_connection_changed(device: int, connected: bool) -> void:
+	if connected or device != _gamepad_device:
+		return
+	_gamepad_device = -1
+	_gamepad_trigger_down = false
+	if current and _gamepad_aim_active:
+		_release_mouse()
+
+func _queue_flight_click(aim: Vector2, fire: bool) -> void:
+	_pending_aim = aim
+	_pending_click = true
+	_pending_shot = fire
+
+func _recenter_aim() -> void:
+	_pointer = get_viewport().get_visible_rect().get_center()
+	if _target_lock != null:
+		_target_lock.pointer_moved(_pointer)
+
+func _input(event: InputEvent) -> void:
+	if Engine.is_editor_hint() or _body == null:
+		return
+	if event is InputEventMouse and current:
+		_use_mouse_aim()
+		return
+	if not (event is InputEventJoypadMotion or event is InputEventJoypadButton):
+		return
+	var fire_threshold := maxf(InputMap.action_get_deadzone(&"flight_fire"), 0.001)
+	if event.device == _gamepad_device and _gamepad_trigger_down \
+			and _gamepad_action_strength(&"flight_fire") <= minf(GAMEPAD_TRIGGER_RELEASE, fire_threshold * 0.55):
+		_gamepad_trigger_down = false
+	if FlightInput.event_pressed(event, &"flight_toggle_overview"):
+		var overview := get_node_or_null(overview_camera_path) as Camera3D
+		if overview != null and (current or overview.current):
+			_toggle_overview()
+			if current:
+				_use_gamepad_aim(event.device)
+			get_viewport().set_input_as_handled()
+		return
+	if not current or _respawn_remaining > 0.0:
+		return
+	if FlightInput.event_matches(event, &"flight_fire") \
+			and FlightInput.joy_strength(&"flight_fire", event.device) >= fire_threshold:
+		if _flight_active and (event.device != _gamepad_device or not _gamepad_trigger_down):
+			_use_gamepad_aim(event.device)
+			_gamepad_trigger_down = true
+			_queue_flight_click(_pointer, true)
+		get_viewport().set_input_as_handled()
+		return
+	if _handle_flight_action(event, true) or (_flight_active and _gamepad_continuous_event(event)):
+		if _flight_active:
+			_use_gamepad_aim(event.device)
+		get_viewport().set_input_as_handled()
+
+func _gamepad_continuous_event(event: InputEvent) -> bool:
+	var actions := GAMEPAD_MOVE_ACTIONS + GAMEPAD_LOOK_ACTIONS + [
+		&"flight_lift_up", &"flight_lift_down", &"flight_bank_lift_up", &"flight_bank_lift_down", &"flight_click_modifier",
+	]
+	if _uses_gamepad_cruise():
+		actions.append_array([&"flight_cruise_increase", &"flight_cruise_decrease"])
+	for action: StringName in actions:
+		if FlightInput.event_matches(event, action) \
+				and FlightInput.joy_strength(action, event.device) > InputMap.action_get_deadzone(action):
+			return true
+	return false
+
+func _handle_flight_action(event: InputEvent, gamepad: bool) -> bool:
+	if FlightInput.event_pressed(event, &"flight_release_controls"):
+		_release_mouse()
+	elif FlightInput.event_pressed(event, &"flight_toggle_controls"):
+		if _flight_active:
+			_release_mouse()
+		else:
+			_capture_mouse()
+	elif FlightInput.event_pressed(event, &"flight_toggle_view"):
+		_toggle_third_person()
+	elif _free_look_event(event, gamepad):
+		var held := FlightInput.joy_strength(&"flight_free_look", event.device) > InputMap.action_get_deadzone(&"flight_free_look") \
+			if gamepad else event.is_pressed()
+		_set_free_look(held)
+	elif FlightInput.event_pressed(event, &"flight_primary_click"):
+		if not _flight_active:
+			_capture_mouse()
+		else:
+			var point := _event_aim(event)
+			_queue_flight_click(point, _fires_on_left_click(_flight_action_down(&"flight_click_modifier")))
+			if not _pending_shot:
+				_pointer = point
+	elif FlightInput.event_pressed(event, &"flight_destination"):
+		if not _flight_active:
+			_capture_mouse()
+		elif _gamepad_can_select_destination():
+			_queue_flight_click(_event_aim(event), false)
+	elif not _flight_active:
+		return false
+	elif _uses_staged_target_lock() and FlightInput.event_pressed(event, TARGET_CONFIRM_ACTION):
+		_target_confirm_requested = true
+	elif _target_lock != null and not _free_look and FlightInput.event_pressed(event, &"flight_target_left"):
+		_target_cycle_step -= 1
+	elif _target_lock != null and not _free_look and FlightInput.event_pressed(event, &"flight_target_right"):
+		_target_cycle_step += 1
+	elif not gamepad and FlightInput.event_pressed(event, &"flight_fire"):
+		_queue_flight_click(_event_aim(event), true)
+	elif FlightInput.event_pressed(event, &"flight_stop"):
+		_cruise_speed_mps = 0.0
+		_cancel_destination()
+		_stop_body()
+	elif FlightInput.event_pressed(event, &"flight_center_aim"):
+		_recenter_aim()
+	elif FlightInput.event_pressed(event, &"flight_speed_step_up"):
+		_adjust_cruise_speed(1)
+	elif FlightInput.event_pressed(event, &"flight_speed_step_down"):
+		_adjust_cruise_speed(-1)
+	else:
+		return false
+	return true
+
+func _free_look_event(event: InputEvent, gamepad: bool) -> bool:
+	if gamepad:
+		return FlightInput.joy_event_is_bound(event, &"flight_free_look")
+	return FlightInput.event_matches(event, &"flight_free_look")
+
+func _set_free_look(pressed: bool) -> void:
+	_free_look = pressed and _flight_active
+	if _flight_active:
+		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED if _free_look else _pointer_mouse_mode()
+		if not _free_look and not OS.has_feature("web"):
+			get_viewport().warp_mouse(_pointer)
+	# Dragging the view near an edge must not steer on button release.
+	_edge_steering_armed = false
+	_update_reticle()
+
+func _event_aim(event: InputEvent) -> Vector2:
+	if event is InputEventMouseButton:
+		return event.position
+	return _pointer
+
+func _pointer_motion(event: InputEventMouseMotion) -> void:
+	if _free_look:
+		_look(event.relative)
+	else:
+		_pointer = event.position
+		if _target_lock != null:
+			_target_lock.pointer_moved(_pointer)
+
+func _unhandled_input(event: InputEvent) -> void:
+	if Engine.is_editor_hint() or event is InputEventJoypadButton or event is InputEventJoypadMotion:
+		return
+	if FlightInput.event_pressed(event, &"flight_toggle_overview"):
 		_toggle_overview()
 		get_viewport().set_input_as_handled()
 		return
 	if not current or _respawn_remaining > 0.0:
 		return
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT:
-		_free_look = event.pressed and _flight_active
-		if _flight_active:
-			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED if _free_look else Input.MOUSE_MODE_CONFINED
-			if not _free_look:
-				get_viewport().warp_mouse(_pointer)
-		# Dragging the view near an edge must not steer on button release.
-		_edge_steering_armed = false
-		_update_reticle()
+	if _handle_flight_action(event, false):
 		get_viewport().set_input_as_handled()
-		return
-	if event is InputEventKey and event.pressed and not event.echo:
-		var key: int = event.physical_keycode if event.physical_keycode != KEY_NONE else event.keycode
-		if _flight_active and key in [KEY_W, KEY_S, KEY_A, KEY_D, KEY_Q, KEY_E]:
-			_play_throttle_sound()
-		match event.keycode:
-			KEY_ESCAPE:
-				_release_mouse()
-			KEY_V:
-				_toggle_third_person()
-			_:
-				return
 	elif event is InputEventMouseMotion and _flight_active:
-		if _free_look:
-			_look(event.relative)
-		else:
-			_pointer = event.position
-	elif event is InputEventMouseButton and event.pressed:
-		match event.button_index:
-			MOUSE_BUTTON_LEFT:
-				if not _flight_active:
-					_capture_mouse()
-				else:
-					_pending_aim = event.position
-					_pending_click = true
-					_pending_shot = Input.is_physical_key_pressed(KEY_SPACE)
-					if not _pending_shot:
-						_pointer = event.position
-			MOUSE_BUTTON_WHEEL_UP:
-				if _flight_active:
-					_adjust_cruise_speed(1)
-			MOUSE_BUTTON_WHEEL_DOWN:
-				if _flight_active:
-					_adjust_cruise_speed(-1)
-			_:
+		_pointer_motion(event)
+		get_viewport().set_input_as_handled()
+	elif _flight_active:
+		for action in GAMEPAD_MOVE_ACTIONS:
+			if FlightInput.event_pressed(event, action):
+				_play_throttle_sound()
 				return
-	else:
-		return
-	get_viewport().set_input_as_handled()
+		if _has_lift_controls() and (FlightInput.event_pressed(event, &"flight_lift_up") \
+				or FlightInput.event_pressed(event, &"flight_lift_down")):
+			_play_throttle_sound()
 
 func _look(relative: Vector2) -> void:
 	if not _free_look:
@@ -691,12 +1143,17 @@ func _capture_mouse() -> void:
 		return
 	_flight_active = true
 	_start_engine_sound.call_deferred()
-	Input.mouse_mode = Input.MOUSE_MODE_CONFINED
+	Input.mouse_mode = _pointer_mouse_mode()
 	Input.set_default_cursor_shape(Input.CURSOR_CROSS)
 	_pointer = get_viewport().get_visible_rect().size * 0.5
 	_update_reticle()
 
+func _pointer_mouse_mode() -> Input.MouseMode:
+	return Input.MOUSE_MODE_VISIBLE if OS.has_feature("web") else Input.MOUSE_MODE_CONFINED
+
 func _release_mouse() -> void:
+	_gamepad_aim_active = false
+	_clear_target_lock()
 	_classic_bank = 0.0
 	_set_craft_attitude(0.0)
 	_set_exhaust_turn(0.0)
@@ -708,6 +1165,9 @@ func _release_mouse() -> void:
 	_free_look = false
 	_pending_click = false
 	_pending_shot = false
+	_delayed_shots.clear()
+	if _target_lock_sound != null:
+		_target_lock_sound.stop()
 	_cancel_destination()
 	_stop_body()
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE

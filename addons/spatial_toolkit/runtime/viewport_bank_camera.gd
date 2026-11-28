@@ -1,6 +1,6 @@
 @tool
 extends "res://addons/spatial_toolkit/runtime/drone_camera.gd"
-## Experimental keyboard steering with a square camera framing zone.
+## Experimental bank steering with a square camera framing zone.
 
 @export_range(1.0, 50.0, 0.5) var point_flight_speed_mps := 10.0
 @export_range(0.05, 2.0, 0.05) var lateral_recenter_delay_seconds := 0.35
@@ -21,13 +21,25 @@ var _lateral_recenter_remaining := 0.0
 var _center_with_yaw := false
 var _recenter_pan_elapsed := 0.0
 
+func _fires_on_left_click(space_held: bool) -> bool:
+	return space_held
+
+func _has_lift_controls() -> bool:
+	return true
+
 func _physics_process(delta: float) -> void:
 	if not _flight_controls_ready(delta):
 		return
+	_update_gamepad_pointer(delta)
+	_update_gamepad_cruise(delta)
+	var steering := _gamepad_stick(GAMEPAD_MOVE_ACTIONS)
+	var strafe := _keyboard_movement().x
 	var keys := Vector2(
-		float(Input.is_physical_key_pressed(KEY_D)) - float(Input.is_physical_key_pressed(KEY_A)),
-		_pitch_input())
-	var lift := float(Input.is_physical_key_pressed(KEY_E)) - float(Input.is_physical_key_pressed(KEY_Q))
+		clampf(strafe + steering.x, -1.0, 1.0),
+		clampf(_pitch_input() + _gamepad_pitch(steering.y), -1.0, 1.0))
+	var lift_up := maxf(_flight_action_strength(&"flight_lift_up"), _flight_action_strength(&"flight_bank_lift_up"))
+	var lift_down := maxf(_flight_action_strength(&"flight_lift_down"), _flight_action_strength(&"flight_bank_lift_down"))
+	var lift := lift_up - lift_down
 	var previous_attitude := Vector2(_drone_yaw, _drone_pitch)
 	var selected_destination := _handle_pending_click()
 	if selected_destination:
@@ -143,7 +155,7 @@ func _follow_camera(delta: float) -> void:
 	else:
 		_recenter_pan_elapsed = 0.0
 		yaw = lerp_angle(yaw, target_yaw, weight)
-	_track_pitch = _track_pitch or _has_destination or orbiting
+	_track_pitch = _track_pitch or _has_destination or orbiting or not _ground_contact_normal.is_zero_approx()
 	var tail_weight := 1.0 - exp(-delta * 3.0 / camera_lag_seconds)
 	if _track_pitch:
 		pitch = lerp_angle(pitch, _drone_pitch + _orbit_pitch, tail_weight)

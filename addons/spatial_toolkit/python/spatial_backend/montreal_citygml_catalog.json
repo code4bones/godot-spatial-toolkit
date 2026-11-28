@@ -1,0 +1,121 @@
+{
+  "dataset_id": "montreal_ville_marie",
+  "dataset_url": "https://www.donneesquebec.ca/recherche/dataset/vmtl-batiment-3d-2016-maquette-citygml-lod2-avec-textures2",
+  "provider": "Ville de Montréal",
+  "license": "CC-BY-4.0",
+  "license_url": "https://creativecommons.org/licenses/by/4.0/",
+  "source_crs": "EPSG:2950",
+  "source_vertical_datum": "CGVD28 (EPSG:5713)",
+  "lod": 2,
+  "members": {
+    "VM01_2016.gml": {
+      "sha256": "ba0991a72ddd55f4aafe918dfd0c144425d9af22f6ccd526f96c50f91e2afb79",
+      "size_bytes": 107772159,
+      "source_url": "https://donnees.montreal.ca/fr/dataset/5eabd047-872e-425a-bbc2-3669e732a132/resource/7d178ff5-4626-467f-9c57-0e038b44f9eb/download/vm_2016_gml_01_09.zip",
+      "source_member": "VM_2016_GML_01_09/VM01_2016_GML.zip/VM01_2016.gml"
+    },
+    "VM02_2016.gml": {
+      "sha256": "4f1a26fc22251cd19d43c34a52e7821545da7101950ec80a3c2b12c400f6a1e4",
+      "size_bytes": 73864242,
+      "source_url": "https://donnees.montreal.ca/fr/dataset/5eabd047-872e-425a-bbc2-3669e732a132/resource/7d178ff5-4626-467f-9c57-0e038b44f9eb/download/vm_2016_gml_01_09.zip",
+      "source_member": "VM_2016_GML_01_09/VM02_2016_GML.zip/VM02_2016.gml"
+    },
+    "VM03_2016.gml": {
+      "sha256": "0a0662e1fa18a162034e10ec89ee5d75b0f51158bf656d0318eabf6835cbdd01",
+      "size_bytes": 90493301,
+      "source_url": "https://donnees.montreal.ca/fr/dataset/5eabd047-872e-425a-bbc2-3669e732a132/resource/7d178ff5-4626-467f-9c57-0e038b44f9eb/download/vm_2016_gml_01_09.zip",
+      "source_member": "VM_2016_GML_01_09/VM03_2016_GML.zip/VM03_2016.gml"
+    },
+    "VM04_2016.gml": {
+      "sha256": "ebda26fea9c7289d40f25c42419c35a74ccea3e8aed6679cfb25329bc8a99e4d",
+      "size_bytes": 97121375,
+      "source_url": "https://donnees.montreal.ca/fr/dataset/5eabd047-872e-425a-bbc2-3669e732a132/resource/7d178ff5-4626-467f-9c57-0e038b44f9eb/download/vm_2016_gml_01_09.zip",
+      "source_member": "VM_2016_GML_01_09/VM04_2016_GML.zip/VM04_2016.gml"
+    },
+    "VM05_2016.gml": {
+      "sha256": "ff73159807148cc58202a8c39e64e58f04dd03928d70e4191d01647fa5c66c1d",
+      "size_bytes": 71228402,
+      "source_url": "https://donnees.montreal.ca/fr/dataset/5eabd047-872e-425a-bbc2-3669e732a132/resource/7d178ff5-4626-467f-9c57-0e038b44f9eb/download/vm_2016_gml_01_09.zip",
+      "source_member": "VM_2016_GML_01_09/VM05_2016_GML.zip/VM05_2016.gml"
+    },
+    "VM06_2016.gml": {
+      "sha256": "b26a192df0f9e96af9cec7765226412d783ebf297507c352b26b372cdde35e56",
+      "size_bytes": 76390514,
+      "source_url": "https://donnees.montreal.ca/fr/dataset/5eabd047-872e-425a-bbc2-3669e732a132/resource/7d178ff5-4626-467f-9c57-0e038b44f9eb/download/vm_2016_gml_01_09.zip",
+      "source_member": "VM_2016_GML_01_09/VM06_2016_GML.zip/VM06_2016.gml"
+    },
+    "VM07_2016.gml": {
+      "sha256": "c22a074ba2de1859f59dfa0acd5d37e231c8360d68b7b03ae0cbb3ac5cad2922",
+      "size_bytes": 128184993,
+      "source_url": "https://donnees.montreal.ca/fr/dataset/5eabd047-872e-425a-bbc2-3669e732a132/resource/7d178ff5-4626-467f-9c57-0e038b44f9eb/download/vm_2016_gml_01_09.zip",
+      "source_member": "VM_2016_GML_01_09/VM07_2016_GML.zip/VM07_2016.gml"
+    },
+    "VM08_2016.gml": {
+      "sha256": "e3110e80399c51513d724c6566fd861e2c32ecaf6b1f0f8b2c8e09955a7144c9",
+      "size_bytes": 42051364,
+      "source_url": "https://donnees.montreal.ca/fr/dataset/5eabd047-872e-425a-bbc2-3669e732a132/resource/7d178ff5-4626-467f-9c57-0e038b44f9eb/download/vm_2016_gml_01_09.zip",
+      "source_member": "VM_2016_GML_01_09/VM08_2016_GML.zip/VM08_2016.gml"
+    },
+    "VM09_2016.gml": {
+      "sha256": "782a10b7406e57fa70dadc0e5b2a309d2ee3700d914b79d585026563fec6c970",
+      "size_bytes": 98156077,
+      "source_url": "https://donnees.montreal.ca/fr/dataset/5eabd047-872e-425a-bbc2-3669e732a132/resource/7d178ff5-4626-467f-9c57-0e038b44f9eb/download/vm_2016_gml_01_09.zip",
+      "source_member": "VM_2016_GML_01_09/VM09_2016_GML.zip/VM09_2016.gml"
+    },
+    "VM10_2016.gml": {
+      "sha256": "4f674b7dfb15c116b935d3f09e871a78eab521e6dfda507c0b3f071145806977",
+      "size_bytes": 108422580,
+      "source_url": "https://donnees.montreal.ca/fr/dataset/5eabd047-872e-425a-bbc2-3669e732a132/resource/a0c45e78-4092-4575-b9f3-486c13df2f33/download/vm_2016_gml_10_18.zip",
+      "source_member": "VM_2016_GML_10_18/VM10_2016_GML.zip/VM10_2016.gml"
+    },
+    "VM11_2016.gml": {
+      "sha256": "f05fdcef3b28748faae02709b032608503485ce05974b8d4c914e3492f89015d",
+      "size_bytes": 152846893,
+      "source_url": "https://donnees.montreal.ca/fr/dataset/5eabd047-872e-425a-bbc2-3669e732a132/resource/a0c45e78-4092-4575-b9f3-486c13df2f33/download/vm_2016_gml_10_18.zip",
+      "source_member": "VM_2016_GML_10_18/VM11_2016_GML.zip/VM11_2016.gml"
+    },
+    "VM12_2016.gml": {
+      "sha256": "3a768f3c22980365da4b20f9e92980ee880acb62a29de425521806516e9b30b8",
+      "size_bytes": 54513016,
+      "source_url": "https://donnees.montreal.ca/fr/dataset/5eabd047-872e-425a-bbc2-3669e732a132/resource/a0c45e78-4092-4575-b9f3-486c13df2f33/download/vm_2016_gml_10_18.zip",
+      "source_member": "VM_2016_GML_10_18/VM12_2016_GML.zip/VM12_2016.gml"
+    },
+    "VM13_2016.gml": {
+      "sha256": "dcefdb619a878343f564b9c5f24143f7b82182c1432109da2dbc0258a188f059",
+      "size_bytes": 81316179,
+      "source_url": "https://donnees.montreal.ca/fr/dataset/5eabd047-872e-425a-bbc2-3669e732a132/resource/a0c45e78-4092-4575-b9f3-486c13df2f33/download/vm_2016_gml_10_18.zip",
+      "source_member": "VM_2016_GML_10_18/VM13_2016_GML.zip/VM13_2016.gml"
+    },
+    "VM14_2016.gml": {
+      "sha256": "72440f9178f8a4515bf3fb43400cd9152bd5fdc1a670edc235c37cd50a2dc906",
+      "size_bytes": 63039050,
+      "source_url": "https://donnees.montreal.ca/fr/dataset/5eabd047-872e-425a-bbc2-3669e732a132/resource/a0c45e78-4092-4575-b9f3-486c13df2f33/download/vm_2016_gml_10_18.zip",
+      "source_member": "VM_2016_GML_10_18/VM14_2016_GML.zip/VM14_2016.gml"
+    },
+    "VM15_2016.gml": {
+      "sha256": "f68bf643e8dae75626f0fa2dde808a82d8441e4a4fc54e19ecdeb0bd524a3c08",
+      "size_bytes": 63892242,
+      "source_url": "https://donnees.montreal.ca/fr/dataset/5eabd047-872e-425a-bbc2-3669e732a132/resource/a0c45e78-4092-4575-b9f3-486c13df2f33/download/vm_2016_gml_10_18.zip",
+      "source_member": "VM_2016_GML_10_18/VM15_2016_GML.zip/VM15_2016.gml"
+    },
+    "VM16_2016.gml": {
+      "sha256": "18ae2d8e25c65b19e4fb97b30940b8a2d3e7b46f10912f6c2b87bf9572ab8c96",
+      "size_bytes": 55906846,
+      "source_url": "https://donnees.montreal.ca/fr/dataset/5eabd047-872e-425a-bbc2-3669e732a132/resource/a0c45e78-4092-4575-b9f3-486c13df2f33/download/vm_2016_gml_10_18.zip",
+      "source_member": "VM_2016_GML_10_18/VM16_2016_GML.zip/VM16_2016.gml"
+    },
+    "VM17_2016.gml": {
+      "sha256": "477a64c38835c6a392049a974b769e65d34e5d5be1e9ff88106aa0babb63e254",
+      "size_bytes": 51118436,
+      "source_url": "https://donnees.montreal.ca/fr/dataset/5eabd047-872e-425a-bbc2-3669e732a132/resource/a0c45e78-4092-4575-b9f3-486c13df2f33/download/vm_2016_gml_10_18.zip",
+      "source_member": "VM_2016_GML_10_18/VM17_2016_GML.zip/VM17_2016.gml"
+    },
+    "VM18_2016.gml": {
+      "sha256": "5c5c707c35b806109f6d2ae1254fce90e6d00a7e71cc270cded2e64a23065b8f",
+      "size_bytes": 101666423,
+      "source_url": "https://donnees.montreal.ca/fr/dataset/5eabd047-872e-425a-bbc2-3669e732a132/resource/a0c45e78-4092-4575-b9f3-486c13df2f33/download/vm_2016_gml_10_18.zip",
+      "source_member": "VM_2016_GML_10_18/VM18_2016_GML.zip/VM18_2016.gml"
+    }
+  },
+  "survey_year": 2016
+}

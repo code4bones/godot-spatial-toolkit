@@ -35,7 +35,8 @@ const OVERPASS_MIGRATION_KEY := "overpass_settings_migrated"
 
 static var _migration_needs_save := false
 
-static func register(editor_settings: EditorSettings) -> void:
+## EditorSettings is available to the plugin, while exported maps also load this script.
+static func register(editor_settings: Object) -> void:
 	var definitions := {
 		PYTHON_EXECUTABLE: {"default": _default_python(), "legacy": "python"},
 		DEFAULT_HEIGHT: {"default": DEFAULT_HEIGHT_M, "legacy": "default_height", "range": "0.1,100,0.1,suffix:m"},

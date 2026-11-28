@@ -5,6 +5,7 @@ Coordinates are local metres in the Godot X/Z plane.
 """
 import ctypes as c
 from ctypes.util import find_library
+from collections import defaultdict
 import math
 import re
 
@@ -19,6 +20,44 @@ FOUNDATION_RENDER_TOP = 0.5
 
 class GeometryError(ValueError):
     pass
+
+
+class FootprintIndex:
+    """Narrow WGS84 footprint comparisons by bounds before calling GEOS."""
+
+    def __init__(self, entries):
+        self.entries = list(entries)
+        self.cells = defaultdict(list)
+        self.wide = []
+        for index, (_, _, bounds) in enumerate(self.entries):
+            cells = self._cells(bounds)
+            if cells is None:
+                self.wide.append(index)
+            else:
+                for cell in cells:
+                    self.cells[cell].append(index)
+
+    @staticmethod
+    def _cells(bounds):
+        x0, y0, x1, y1 = (math.floor(value * 500) for value in bounds)
+        if (x1 - x0 + 1) * (y1 - y0 + 1) > 256:
+            return None
+        return ((x, y) for x in range(x0, x1 + 1) for y in range(y0, y1 + 1))
+
+    def candidates(self, bounds):
+        cells = self._cells(bounds)
+        if cells is None:
+            indices = range(len(self.entries))
+        else:
+            indexed = set(self.wide)
+            for cell in cells:
+                indexed.update(self.cells.get(cell, ()))
+            indices = indexed
+        west, south, east, north = bounds
+        for index in indices:
+            key, polygons, (low_x, low_y, high_x, high_y) = self.entries[index]
+            if low_x < east and high_x > west and low_y < north and high_y > south:
+                yield key, polygons
 
 
 class Geometry:
@@ -44,9 +83,10 @@ class Geometry:
         self._bind("GEOSWKTReader_read_r", c.c_void_p, [c.c_void_p, c.c_void_p, c.c_char_p])
         self._bind("GEOSGeom_destroy_r", None, [c.c_void_p, c.c_void_p])
         self._bind("GEOSisValid_r", c.c_byte, [c.c_void_p, c.c_void_p])
-        for predicate in ("GEOSEquals_r", "GEOSCovers_r"):
+        for predicate in ("GEOSEquals_r", "GEOSCovers_r", "GEOSIntersects_r"):
             self._bind(predicate, c.c_byte, [c.c_void_p, c.c_void_p, c.c_void_p])
         self._bind("GEOSArea_r", c.c_int, [c.c_void_p, c.c_void_p, c.POINTER(c.c_double)])
+        self._bind("GEOSIntersection_r", c.c_void_p, [c.c_void_p, c.c_void_p, c.c_void_p])
         self._bind("GEOSBuffer_r", c.c_void_p, [c.c_void_p, c.c_void_p, c.c_double, c.c_int])
         self._bind("GEOSConstrainedDelaunayTriangulation_r", c.c_void_p, [c.c_void_p, c.c_void_p])
         self._bind("GEOSGetNumGeometries_r", c.c_int, [c.c_void_p, c.c_void_p])
@@ -145,6 +185,46 @@ class Geometry:
             return self._triangles(polygon)
         finally:
             self._destroy(polygon)
+
+    def intersects_box(self, polygons, west, south, east, north):
+        box = self._read("POLYGON" + self._polygon_body([[
+            (west, south), (east, south), (east, north), (west, north), (west, south)]]))
+        try:
+            for rings in polygons:
+                polygon = self._read("POLYGON" + self._polygon_body(rings))
+                try:
+                    if self.lib.GEOSIntersects_r(self.context, polygon, box) == 1:
+                        return True
+                finally:
+                    self._destroy(polygon)
+            return False
+        finally:
+            self._destroy(box)
+
+    def footprint_overlap(self, first, second):
+        """Share of each footprint covered by their intersection, zero if invalid."""
+        shapes = []
+        overlap = None
+        try:
+            for polygons in (first, second):
+                body = ",".join(self._polygon_body(rings) for rings in polygons)
+                shapes.append(self._read("MULTIPOLYGON(" + body + ")"))
+            if any(self.lib.GEOSisValid_r(self.context, shape) != 1 for shape in shapes):
+                return 0.0, 0.0
+            overlap = self.lib.GEOSIntersection_r(self.context, *shapes)
+            if not overlap:
+                return 0.0, 0.0
+            areas = []
+            for shape in (*shapes, overlap):
+                area = c.c_double()
+                if self.lib.GEOSArea_r(self.context, shape, c.byref(area)) != 1:
+                    return 0.0, 0.0
+                areas.append(area.value)
+            return tuple(areas[2] / area if area > 0 else 0.0 for area in areas[:2])
+        finally:
+            self._destroy(overlap)
+            for shape in shapes:
+                self._destroy(shape)
 
     def road(self, points, width):
         line = self._read("LINESTRING(" + self._points(points) + ")")

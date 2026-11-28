@@ -3,6 +3,7 @@ class_name SpatialAttributeBank
 extends Resource
 ## Shared style rules for one chunked world.
 
+const FILE_NAME := "attribute_bank.tres"
 const AppearanceProfile := preload("res://addons/spatial_toolkit/core/map_appearance_profile.gd")
 const Groups := preload("res://addons/spatial_toolkit/core/facade_groups.gd")
 const Ground := preload("res://addons/spatial_toolkit/core/ground_styles.gd")

@@ -1,12 +1,22 @@
 @tool
 extends RefCounted
-## Recover projected footprint rings from older generated meshes with flat roofs.
+## Recover projected footprint rings from horizontal faces of older generated meshes.
 
 
 static func recover(mesh: Mesh, scale_factor: float) -> Dictionary:
+	return _recover_horizontal(mesh, scale_factor, false)
+
+
+static func recover_ground(mesh: Mesh, scale_factor: float) -> Dictionary:
+	return _recover_horizontal(mesh, scale_factor, true)
+
+
+static func _recover_horizontal(mesh: Mesh, scale_factor: float, ground: bool) -> Dictionary:
 	if mesh == null or not is_finite(scale_factor) or scale_factor <= 0.0:
 		return {}
-	var roof_y := mesh.get_aabb().end.y
+	var bounds := mesh.get_aabb()
+	var plane_y := bounds.position.y if ground else bounds.end.y
+	var outward_y := -1.0 if ground else 1.0
 	var edges := {}
 	for surface in mesh.get_surface_count():
 		var arrays := mesh.surface_get_arrays(surface)
@@ -19,13 +29,16 @@ static func recover(mesh: Mesh, scale_factor: float) -> Dictionary:
 			var a := offset if indices.is_empty() else indices[offset]
 			var b := offset + 1 if indices.is_empty() else indices[offset + 1]
 			var c := offset + 2 if indices.is_empty() else indices[offset + 2]
-			if (normals[a].y < 0.99 or normals[b].y < 0.99 or normals[c].y < 0.99
-					or absf(vertices[a].y - roof_y) > 0.0001 or absf(vertices[b].y - roof_y) > 0.0001
-					or absf(vertices[c].y - roof_y) > 0.0001):
+			if (outward_y * normals[a].y < 0.99 or outward_y * normals[b].y < 0.99
+					or outward_y * normals[c].y < 0.99 or absf(vertices[a].y - plane_y) > 0.0001
+					or absf(vertices[b].y - plane_y) > 0.0001 or absf(vertices[c].y - plane_y) > 0.0001):
 				continue
 			var points := PackedVector2Array([
 				Vector2(vertices[a].x, vertices[a].z), Vector2(vertices[b].x, vertices[b].z),
 				Vector2(vertices[c].x, vertices[c].z)])
+			if ground and _signed_area(points) > 0.0:
+				# Normalize ground triangle winding to match the footprint convention.
+				points.reverse()
 			for index in 3:
 				var from := points[index]
 				var to := points[(index + 1) % 3]

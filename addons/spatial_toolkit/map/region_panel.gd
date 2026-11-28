@@ -330,11 +330,37 @@ func _button(caption: String, callback: Callable, parent: Control) -> Button:
 func _add_bbox(bbox: Dictionary) -> void:
 	if not _writable or _fetch_button.disabled or bbox["north"] <= bbox["south"] or bbox["east"] == bbox["west"]:
 		return
-	queue.entries.append({"id": queue.next_id, "bbox": bbox, "checked": false, "scene": ""})
+	var entry := {"id": queue.next_id, "bbox": bbox, "checked": false, "scene": ""}
+	var citygml: Dictionary = map.citygml_dataset
+	if not citygml.is_empty():
+		if not _accept_citygml_bbox(citygml, bbox):
+			return
+		entry["citygml"] = citygml.duplicate(true)
+	queue.entries.append(entry)
 	queue.next_id += 1
 	if not _save():
 		queue.entries.pop_back()
+	elif entry.has("citygml"):
+		_status.text = atr("Area %d uses CityGML buildings.") % int(entry["id"])
+		map.selection_feedback.emit(_status.text)
 	_refresh()
+
+func _accept_citygml_bbox(dataset: Dictionary, bbox: Dictionary) -> bool:
+	var bounds: Dictionary = dataset.get("coverage", {})
+	var message := ""
+	if not bounds.is_empty() and (bbox["west"] >= bbox["east"] or bbox["west"] < bounds["west"]
+			or bbox["east"] > bounds["east"] or bbox["south"] < bounds["south"]
+			or bbox["north"] > bounds["north"]):
+		message = atr("Draw inside the purple CityGML coverage, or select Default map for OSM only.")
+	elif bbox["west"] >= bbox["east"]:
+		message = atr("CityGML requires a BBox whose west edge comes before its east edge.")
+	elif not FileAccess.file_exists(dataset["path"]):
+		message = atr("Download the archive in the 3D data menu.")
+	if message.is_empty():
+		return true
+	_status.text = message
+	map.selection_feedback.emit(message)
+	return false
 
 func _find(id: int) -> Dictionary:
 	for entry in queue.entries:
@@ -415,6 +441,9 @@ func _edit_bbox(id: int, bbox: Dictionary) -> void:
 	var entry := _find(id)
 	if entry.is_empty() or not _writable or _fetch_button.disabled or entry["bbox"] == bbox:
 		return
+	if entry.has("citygml") and not _accept_citygml_bbox(entry["citygml"], bbox):
+		map.queue_redraw()
+		return
 	var previous := entry.duplicate()
 	entry["bbox"] = bbox
 	entry["revision"] = int(entry.get("revision", 0)) + 1
@@ -426,6 +455,8 @@ func _edit_bbox(id: int, bbox: Dictionary) -> void:
 	else:
 		_legacy_counts.erase(_data_path(previous))
 		_status.text = atr("Area %d updated. Fetch its new bounds when ready.") % id
+		if entry.has("citygml"):
+			map.selection_feedback.emit(_status.text)
 	_refresh()
 
 func _data_path(entry: Dictionary) -> String:
@@ -484,8 +515,11 @@ func _refresh() -> void:
 		row.set_text_overrun_behavior(Column.STATUS, TextServer.OVERRUN_TRIM_ELLIPSIS)
 		row.add_button(Column.REMOVE, get_theme_icon("close", "Window"), DELETE_BUTTON,
 			not _writable or _fetch_button.disabled, atr("Remove area from the list"))
-		row.set_tooltip_text(Column.AREA, atr("S %.6f · W %.6f · N %.6f · E %.6f\nDouble-click to edit this area on the map.") % [
-			box["south"], box["west"], box["north"], box["east"]])
+		var area_tooltip := atr("S %.6f · W %.6f · N %.6f · E %.6f\nDouble-click to edit this area on the map.") % [
+			box["south"], box["west"], box["north"], box["east"]]
+		if entry.has("citygml"):
+			area_tooltip += "\n" + atr("CityGML buildings. Table counts describe downloaded OSM features.")
+		row.set_tooltip_text(Column.AREA, area_tooltip)
 		var detail := atr(str(entry["error"])) if entry.has("error") else path
 		row.set_tooltip_text(Column.STATUS, "%s\n%s" % [state, detail] if not detail.is_empty() else state)
 		if selected == id:
@@ -626,15 +660,38 @@ func _fetch_checked() -> void:
 		_status.text = atr(message)
 		_log(message)
 		return
+	var blocked_citygml := false
+	var archive_hashes := {}
 	for entry in queue.entries:
+		if not entry["checked"]:
+			continue
+		var citygml_changed := false
+		if entry.has("citygml"):
+			var dataset: Dictionary = entry["citygml"]
+			if dataset.get("requires_osm_buildings", false) and not _fetch_layers.has("buildings"):
+				_record_error(int(entry["id"]), "Enable the OSM Buildings layer to fetch areas with a CityGML archive.")
+				blocked_citygml = true
+				continue
+			var archive_path: String = dataset["path"]
+			if not archive_hashes.has(archive_path):
+				archive_hashes[archive_path] = FileAccess.get_sha256(archive_path)
+			var digest: String = archive_hashes[archive_path]
+			if digest.is_empty():
+				_record_error(int(entry["id"]), "The local CityGML archive is unavailable.")
+				blocked_citygml = true
+				continue
+			citygml_changed = digest != entry.get("citygml_sha256", "")
 		var saved_key := str(entry.get("source_key", "" if local else _fetch_source_key))
-		if entry["checked"] and (not FileAccess.file_exists(_data_path(entry))
+		if (not FileAccess.file_exists(_data_path(entry)) or citygml_changed
 				or entry.get("layers", Overpass.DEFAULT_LAYERS) != _fetch_layers
 				or saved_key != _fetch_source_key):
 			_pending.append(int(entry["id"]))
 	if _pending.is_empty():
-		_status.text = atr("Check an area that needs the selected layers.")
-		_log("No checked areas need downloading.")
+		if blocked_citygml:
+			_refresh()
+		else:
+			_status.text = atr("Check an area that needs the selected layers.")
+			_log("No checked areas need downloading.")
 		return
 	_fetch_total = _pending.size()
 	_log("Starting fetch batch: %d area(s), layers: %s." % [
@@ -708,7 +765,7 @@ func _apply_pbf_output(id: int, output: Dictionary, directory: String) -> void:
 	var data: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
 	if not data is Dictionary or not data.get("features") is Array or not data.get("source") is Dictionary:
 		_record_error(id, "The PBF extractor returned invalid GeoJSON.")
-	elif data["features"].is_empty():
+	elif data["features"].is_empty() and not _find(id).has("citygml"):
 		_record_error(id, "No usable features in the selected layers (%d skipped).", [data["source"]["skipped"]])
 	else:
 		_save_download(id, data)
@@ -774,7 +831,7 @@ func _on_response(result: int, code: int, _headers: PackedStringArray, body: Pac
 		var data := Overpass.convert(body, _find(id)["bbox"], _endpoint, _fetch_layers)
 		if data.has("error"):
 			_record_error(id, str(data["error"]), [], "Overpass returned invalid or incomplete data.")
-		elif data["features"].is_empty():
+		elif data["features"].is_empty() and not _find(id).has("citygml"):
 			_record_error(id, "No usable features in the selected layers (%d skipped).", [data["source"]["skipped"]])
 		else:
 			_save_download(id, data)
@@ -811,6 +868,16 @@ func _on_response(result: int, code: int, _headers: PackedStringArray, body: Pac
 func _save_download(id: int, data: Dictionary) -> void:
 	var entry := _find(id)
 	var before := entry.duplicate()
+	var citygml_digest := ""
+	if entry.has("citygml"):
+		var dataset: Dictionary = entry["citygml"]
+		var source_path: String = dataset["path"]
+		citygml_digest = FileAccess.get_sha256(source_path)
+		if citygml_digest.is_empty():
+			_record_error(id, "The local CityGML archive is unavailable.")
+			return
+		data["source"]["citygml"] = {"id": dataset["id"],
+			"path": ProjectSettings.globalize_path(source_path), "sha256": citygml_digest}
 	var revision := int(entry.get("revision", 0))
 	var replacing := FileAccess.file_exists(_data_path(entry))
 	if replacing:
@@ -831,6 +898,8 @@ func _save_download(id: int, data: Dictionary) -> void:
 	entry["layers"] = _fetch_layers.duplicate()
 	entry["layer_counts"] = Overpass.count_features_by_layer(data, _fetch_layers)
 	entry["source_key"] = _fetch_source_key
+	if not citygml_digest.is_empty():
+		entry["citygml_sha256"] = citygml_digest
 	if replacing:
 		entry["revision"] = revision
 		entry["scene"] = ""

@@ -10,6 +10,7 @@ import json
 import math
 import os
 from pathlib import Path
+import re
 import tempfile
 
 from .merge import OSM_ID
@@ -18,6 +19,7 @@ from .world_chunks import _number, _previous_manifest
 
 
 ROAD_KINDS = {"Roads", "Paths", "PlannedRoads"}
+CITYGML_ID = re.compile(r"citygml/[A-Za-z0-9_.:-]+")
 ROAD_Y = {"Roads": 0.08, "Paths": 0.10, "PlannedRoads": 0.13}
 DRIVABLE = {
     "motorway", "trunk", "primary", "secondary", "tertiary", "motorway_link",
@@ -34,7 +36,8 @@ def _selector(path):
         if not OSM_ID.fullmatch(identity) or not isinstance(kind, str) or kind not in ROAD_KINDS:
             raise ValueError("Invalid road identity or kind in bake feature selector")
     for identity, bounds in value["buildings"].items():
-        if (not OSM_ID.fullmatch(identity) or not isinstance(bounds, list) or len(bounds) != 6
+        if (not (OSM_ID.fullmatch(identity) or CITYGML_ID.fullmatch(identity))
+                or not isinstance(bounds, list) or len(bounds) != 6
                 or any(isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) for v in bounds)
                 or any(bounds[axis] > bounds[axis + 3] for axis in range(3))):
             raise ValueError("Building selector bounds must be six finite ordered gameplay coordinates")
@@ -120,6 +123,15 @@ def write_world_data(world, bake_features, output, *, progress=None):
             if identity in features:
                 raise ValueError("Duplicate selected identity in world registry: " + identity)
             features[identity] = feature
+    citygml_buildings = document.get("citygml_buildings", {})
+    if not isinstance(citygml_buildings, dict):
+        raise ValueError("Invalid CityGML building registry")
+    for identity, feature in citygml_buildings.items():
+        if identity not in wanted:
+            continue
+        if not CITYGML_ID.fullmatch(identity) or not isinstance(feature, dict) or feature.get("id") != identity:
+            raise ValueError("Invalid CityGML building in world registry: " + identity)
+        features[identity] = feature
     missing = wanted - features.keys()
     if missing:
         raise ValueError("Baked features absent from world registry: " + ", ".join(sorted(missing)[:5]))
@@ -143,6 +155,8 @@ def write_world_data(world, bake_features, output, *, progress=None):
             polygons = [geometry["coordinates"]] if geometry["type"] == "Polygon" else geometry["coordinates"]
             footprints = [[[project(point) for point in ring] for ring in polygon] for polygon in polygons]
             buildings[identity] = {"tags": tags, "bounds": selection["buildings"][identity], "footprints": footprints}
+            if "spatial_source" in feature and CITYGML_ID.fullmatch(identity):
+                buildings[identity]["source"] = feature["spatial_source"]
     result = {"schema": 1, "units": "gameplay_meters", "axes": {"x": "east", "y": "up", "z": "south"},
               "local_origin": index["local_origin"], "projection": index["projection"], "world_scale": scale,
               "source_world": str(world), "source_world_sha256": hashlib.sha256(world_raw).hexdigest(),

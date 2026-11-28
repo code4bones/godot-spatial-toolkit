@@ -6,6 +6,7 @@ const FLASH_SECONDS := 0.15
 
 var sound_override: AudioStream
 var volume_db := -6.0
+var visual_speed := 1.0
 var _flash_age := 0.0
 var _parts_remaining := 2
 @onready var _flash := $Flash as MeshInstance3D
@@ -13,10 +14,13 @@ var _parts_remaining := 2
 
 func _ready() -> void:
 	var smoke := $Smoke as CPUParticles3D
+	var sparks := $Sparks as CPUParticles3D
 	var sound := $ImpactSound as AudioStreamPlayer3D
 	smoke.finished.connect(_finish_part, CONNECT_ONE_SHOT)
 	sound.finished.connect(_finish_part, CONNECT_ONE_SHOT)
-	($Sparks as CPUParticles3D).restart()
+	sparks.speed_scale *= visual_speed
+	smoke.speed_scale *= visual_speed
+	sparks.restart()
 	smoke.restart()
 	sound.stream = sound_override
 	if sound.stream == null and ResourceLoader.exists(SOUND_PATH, "AudioStream"):
@@ -33,7 +37,7 @@ func _finish_part() -> void:
 		queue_free()
 
 func _process(delta: float) -> void:
-	_flash_age += delta
+	_flash_age += delta * visual_speed
 	var progress := clampf(_flash_age / FLASH_SECONDS, 0.0, 1.0)
 	_flash.scale = Vector3.ONE * lerpf(0.55, 3.1, ease(progress, 0.45))
 	_flash_material.albedo_color = Color(1.0, 0.45, 0.12, pow(1.0 - progress, 1.6))

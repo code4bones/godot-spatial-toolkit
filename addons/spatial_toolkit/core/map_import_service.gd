@@ -172,6 +172,8 @@ func _launch(python_path: String, arguments: PackedStringArray, mode: String) ->
 	_closing = false
 	busy = true
 	var message := "Checking dependencies…" if mode == "check" else "Starting GeoJSON processing…"
+	if mode == "citygml_download":
+		message = "Preparing 3D archive download…"
 	progress.emit(Localization.translate(message), -1.0)
 	set_process(true)
 	return {"ok": true}
@@ -186,7 +188,7 @@ func _process(_delta: float) -> void:
 		return
 	if Time.get_ticks_msec() - _started_ms > TIMEOUT_MS:
 		_stop_process()
-		_finish({"ok": false, "error": Localization.translate("Processing exceeded 180 seconds. Try a smaller area.")})
+		_finish({"ok": false, "error": _timeout_message()})
 		return
 	if OS.is_process_running(int(_process_info["pid"])):
 		return
@@ -195,9 +197,10 @@ func _process(_delta: float) -> void:
 	_close_pipes()
 	var parser := JSON.new()
 	if parser.parse(_stdout.get_string_from_utf8().strip_edges()) != OK or not parser.data is Dictionary:
-		var message := Localization.translate(
-			"Invalid Python response (code %d). Python 3.10+, pyproj, and GEOS 3.10+ are required.\n%s")
-		_finish({"ok": false, "error": message % [exit_code, _diagnostics()]})
+		var message := "Invalid Python response (code %d). Python 3.10+, pyproj, and GEOS 3.10+ are required.\n%s"
+		if _mode == "citygml_download":
+			message = "Invalid CityGML download response (code %d).\n%s"
+		_finish({"ok": false, "error": Localization.translate(message) % [exit_code, _diagnostics()]})
 		return
 	var response: Dictionary = parser.data
 	if exit_code != 0 or not response.get("ok", false):
@@ -208,11 +211,14 @@ func _process(_delta: float) -> void:
 				_job_dir = ""
 		_finish(failure)
 		return
-	if _mode in ["check", "world_data"]:
+	if _mode in ["check", "world_data", "citygml_download"]:
 		_finish(response)
 		return
 	_building = true
 	_build_scene(response)
+
+func _timeout_message() -> String:
+	return Localization.translate("Processing exceeded 180 seconds. Try a smaller area.")
 
 func _read_pipes() -> void:
 	for key in ["stdio", "stderr"]:
@@ -227,7 +233,7 @@ func _read_pipes() -> void:
 				_stdout.append_array(chunk)
 			else:
 				_stderr.append_array(chunk)
-	if _mode == "generate" and _stderr.size() <= OUTPUT_LIMIT:
+	if _mode in ["generate", "citygml_download"] and _stderr.size() <= OUTPUT_LIMIT:
 		_read_backend_progress()
 
 func _read_backend_progress() -> void:

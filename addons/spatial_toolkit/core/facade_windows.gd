@@ -25,6 +25,20 @@ static func prepare(building: MeshInstance3D, geometry: Dictionary, paint: bool)
 	return _prepare_layout(building, geometry, paint, SpatialWindowLayout.new())
 
 
+static func is_citygml(building: MeshInstance3D) -> bool:
+	return str(building.get_meta("source_id", "")).begins_with("citygml/")
+
+
+static func prepare_citygml(building: MeshInstance3D, paint: bool) -> Dictionary:
+	var source: Dictionary = building.get_meta("source", {})
+	if source.get("modeled_openings", false):
+		return prepare(building, {}, paint)
+	var geometry: Dictionary = building.get_meta(GEOMETRY, {})
+	if geometry.is_empty():
+		geometry = Footprint.recover_ground(building.mesh, float(building.get_meta("world_scale", 1.0)))
+	return prepare(building, geometry, paint)
+
+
 ## Return the current atlas for custom layouts. Clearing a rule restores the saved source layout.
 static func relayout(building: MeshInstance3D, settings: SpatialWindowLayout, paint: bool) -> Dictionary:
 	if not building.has_meta(METADATA):
@@ -42,7 +56,7 @@ static func relayout(building: MeshInstance3D, settings: SpatialWindowLayout, pa
 	if existing.get("values") == values and existing.get("paint") == paint:
 		return existing
 	var geometry: Dictionary = building.get_meta(GEOMETRY, {})
-	if geometry.is_empty():
+	if geometry.is_empty() and not is_citygml(building):
 		geometry = Footprint.recover(building.mesh, float(building.get_meta("world_scale", 1.0)))
 		if geometry.is_empty():
 			return existing
@@ -60,7 +74,9 @@ static func relayout(building: MeshInstance3D, settings: SpatialWindowLayout, pa
 
 static func _prepare_layout(building: MeshInstance3D, geometry: Dictionary, paint: bool,
 		settings: SpatialWindowLayout) -> Dictionary:
-	var polygons: Array = [geometry["coordinates"]] if geometry["type"] == "Polygon" else geometry["coordinates"]
+	var polygons: Array = geometry.get("coordinates", [])
+	if geometry.get("type", "") == "Polygon":
+		polygons = [polygons]
 	var id := str(building.get_meta("source_id"))
 	var tags: Dictionary = building.get_meta("source_tags", {})
 	var kind := str(tags.get("building", ""))

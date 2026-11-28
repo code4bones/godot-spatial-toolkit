@@ -8,13 +8,20 @@ import re
 
 from .merge import merge_whole_osm
 from .osm_rules import normalize_osm_rules
-from .preview import MergeConflictError, _extent_origin, _validated_features, _with_progress, prepare
+from .preview import MergeConflictError, _extent_origin, _validated_features, _with_progress, prepare, validate_geometry
+from .preview_geometry import FootprintIndex, Geometry
+from .regional_citygml import REGIONAL_DATASETS, read_regional_archive
 
 
 SCHEMA = 1
 DEFAULT_CHUNK_SIZE_M = 1000.0
 CELL_ID = re.compile(r"chunk_-?[0-9]+_-?[0-9]+")
 SHA256 = re.compile(r"[0-9a-f]{64}")
+KALASATAMA_EXTRACT = "helsinki_kalasatama"
+KALASATAMA_ARCHIVE = "helsinki_kalasatama_archive"
+TUM2TWIN_LOD3 = "tum2twin_lod3"
+TUM2TWIN_LOD3_FULL = "tum2twin_lod3_full"
+SUPPLEMENTAL_CITYGML = {KALASATAMA_ARCHIVE, TUM2TWIN_LOD3, TUM2TWIN_LOD3_FULL, *REGIONAL_DATASETS}
 
 
 def _number(value, field, minimum, maximum=math.inf):
@@ -222,6 +229,164 @@ def _write_cells(output, meshes, provenance, size, progress):
     return results
 
 
+def _citygml_requests(records):
+    requests = []
+    for record in records:
+        source = record.get("source", {})
+        if not isinstance(source, dict) or "citygml" not in source:
+            continue
+        dataset = source["citygml"]
+        if (not isinstance(dataset, dict) or dataset.get("id") not in (KALASATAMA_EXTRACT, *SUPPLEMENTAL_CITYGML)
+                or not isinstance(dataset.get("path"), str) or not Path(dataset["path"]).is_absolute()
+                or not isinstance(dataset.get("sha256"), str) or not SHA256.fullmatch(dataset["sha256"])):
+            raise ValueError("Invalid CityGML source. Fetch the area again in Map Areas.")
+        if (dataset["id"] in SUPPLEMENTAL_CITYGML
+                and (not isinstance(source.get("layers"), list) or "buildings" not in source["layers"])):
+            raise ValueError("Fetch the OSM buildings layer when using a supplemental CityGML archive.")
+        bbox = source.get("bbox")
+        if not isinstance(bbox, dict):
+            raise ValueError("CityGML requires the original WGS84 area bounds")
+        box = {key: _number(bbox.get(key), key, -limit, limit)
+               for key, limit in (("west", 180), ("south", 90), ("east", 180), ("north", 90))}
+        if not (box["west"] < box["east"] and box["south"] < box["north"]):
+            raise ValueError("CityGML area bounds are reversed or empty")
+        requests.append((dataset, box))
+    return requests
+
+
+def _osm_buildings_in_boxes(features, boxes):
+    if not boxes or not features:
+        return set()
+    result = set()
+    with Geometry() as geometry:
+        for feature in features:
+            tags = feature.get("properties")
+            shape = feature["geometry"]
+            if (not isinstance(tags, dict) or tags.get("building") in (None, "no")
+                    or shape.get("type") not in ("Polygon", "MultiPolygon")):
+                continue
+            try:
+                polygons, bounds = _polygons_and_bounds(shape)
+            except ValueError:
+                continue  # The regular geometry generator reports unusable OSM features.
+            for box in boxes:
+                west, south, east, north = (box[key] for key in ("west", "south", "east", "north"))
+                if (bounds[2] >= west and bounds[0] <= east and bounds[3] >= south and bounds[1] <= north
+                        and geometry.intersects_box(polygons, west, south, east, north)):
+                    result.add(feature["id"])
+                    break
+    return result
+
+
+def _polygons_and_bounds(shape):
+    polygons = [shape["coordinates"]] if shape["type"] == "Polygon" else shape["coordinates"]
+    return polygons, _extent_bounds(validate_geometry(shape))
+
+
+def _osm_buildings_matching_archive(features, archived):
+    """Replace OSM only when exactly one measured footprint largely agrees."""
+    if not features or not archived:
+        return set()
+    candidates = FootprintIndex((identity, *_polygons_and_bounds(feature["geometry"]))
+                                for identity, feature in archived.items())
+    matches = set()
+    with Geometry() as geometry:
+        for feature in features:
+            tags = feature.get("properties")
+            shape = feature["geometry"]
+            if (not isinstance(tags, dict) or tags.get("building") in (None, "no")
+                    or shape.get("type") not in ("Polygon", "MultiPolygon")):
+                continue
+            try:
+                polygons, bounds = _polygons_and_bounds(shape)
+            except ValueError:
+                continue
+            agreed = 0
+            for _, measured in candidates.candidates(bounds):
+                osm_share, citygml_share = geometry.footprint_overlap(polygons, measured)
+                if osm_share >= 0.8 and citygml_share >= 0.8:
+                    agreed += 1
+                    if agreed > 1:
+                        break
+            if agreed == 1:
+                matches.add(feature["id"])
+    return matches
+
+
+def _extent_bounds(points):
+    xs, ys = zip(*points)
+    return min(xs), min(ys), max(xs), max(ys)
+
+
+def _citygml_additions(old_requests, requests, old_registry, registry, features, known_ids, projection, scale, progress):
+    from .citygml import read_helsinki, read_helsinki_archive, read_tum_archive
+
+    groups = defaultdict(list)
+    for dataset, box in requests:
+        groups[dataset["id"], Path(dataset["path"]), dataset["sha256"]].append(box)
+    hashes = defaultdict(set)
+    for dataset, _ in [*old_requests, *requests]:
+        hashes[dataset["id"]].add(dataset["sha256"])
+    if any(len(values) > 1 for values in hashes.values()):
+        raise ValueError("A CityGML source changed. Create a new world to use the updated data.")
+
+    old_boxes = [box for dataset, box in old_requests if dataset["id"] == KALASATAMA_EXTRACT]
+    new_boxes = [box for dataset, box in requests if dataset["id"] == KALASATAMA_EXTRACT]
+    previous = json.loads(old_registry.read_bytes()) if old_requests else {}
+    buildings = previous.get("citygml_buildings", {})
+    if not isinstance(buildings, dict):
+        raise ValueError("Invalid CityGML building registry in the previous world")
+    archive_ids = previous.get("citygml_archive_ids", [])
+    if (not isinstance(archive_ids, list)
+            or any(not isinstance(identity, str) or identity not in buildings for identity in archive_ids)):
+        raise ValueError("Invalid archive references in the previous CityGML world")
+    old_archived = {identity: buildings[identity] for identity in archive_ids}
+    archived = dict(old_archived)
+    equivalent_ids = {alias for feature in old_archived.values()
+                      for alias in feature.get("spatial_source", {}).get("equivalent_citygml_ids", ())}
+    mesh_items = []
+    archive_skips = {}
+    archive_readers = {KALASATAMA_ARCHIVE: read_helsinki_archive,
+                       TUM2TWIN_LOD3: read_tum_archive, TUM2TWIN_LOD3_FULL: read_tum_archive}
+    for (dataset_id, path, digest), boxes in groups.items():
+        if dataset_id in REGIONAL_DATASETS:
+            selected = read_regional_archive(dataset_id, path, digest, boxes, projection, scale,
+                                             on_skipped=archive_skips.update, progress=progress)
+        elif dataset_id in archive_readers:
+            selected = archive_readers[dataset_id](path, digest, boxes, projection, scale, on_skipped=archive_skips.update)
+        else:
+            selected = read_helsinki(path, digest, boxes, projection, scale)
+        for identity, (mesh, feature) in selected.items():
+            if identity in equivalent_ids:
+                continue
+            aliases = feature.get("spatial_source", {}).get("equivalent_citygml_ids", ())
+            if any(alias in old_archived for alias in aliases):
+                raise ValueError("This world already contains an alternate CityGML building covered by a landmark. "
+                                 "Create a new world to replace it.")
+            if dataset_id in SUPPLEMENTAL_CITYGML:
+                archived[identity] = buildings.get(identity, feature)
+            if identity not in buildings:
+                buildings[identity] = feature
+                mesh_items.append(mesh)
+
+    prior_features = features[:known_ids]
+    prior_overlap = _osm_buildings_in_boxes(prior_features, new_boxes)
+    if archived.keys() != old_archived.keys():
+        prior_overlap |= _osm_buildings_matching_archive(prior_features, archived)
+    if prior_overlap:
+        already_suppressed = (_osm_buildings_in_boxes(prior_features, old_boxes)
+                              | _osm_buildings_matching_archive(prior_features, old_archived))
+        if prior_overlap - already_suppressed:
+            raise ValueError("This world already has OSM buildings in the CityGML area. Create a new world to replace them.")
+    registry["citygml_buildings"] = buildings
+    if archived:
+        registry["citygml_archive_ids"] = sorted(archived)
+    new_features = features[known_ids:]
+    suppressed = (_osm_buildings_in_boxes(new_features, [*old_boxes, *new_boxes])
+                  | _osm_buildings_matching_archive(new_features, archived))
+    return mesh_items, suppressed, archive_skips
+
+
 def prepare_world_chunks(sources, output, *, previous=None, chunk_size=DEFAULT_CHUNK_SIZE_M, world_scale=1.0,
                          default_height=3.0, level_height=3.0, progress=None, osm_rules=None):
     """Write a pending world revision without touching its previous index or scenes."""
@@ -252,12 +417,18 @@ def prepare_world_chunks(sources, output, *, previous=None, chunk_size=DEFAULT_C
     new_source_records = merge["sources"][1:] if old_registry is not None else merge["sources"]
     known_ids = merge["sources"][0]["new_ids"] if old_registry is not None else 0
     features = registry["features"]
+    old_citygml = _citygml_requests(manifest.get("source_records", []))
+    new_citygml = _citygml_requests(new_source_records)
     if old_registry is not None:
         origin = (manifest["local_origin"]["longitude"], manifest["local_origin"]["latitude"])
     else:
         base = features[:new_source_records[0]["new_ids"]]
-        _, _, points = _validated_features({"features": base})
-        origin = _extent_origin(points)
+        if not base and new_citygml:
+            box = new_citygml[0][1]
+            origin = ((box["west"] + box["east"]) / 2, (box["south"] + box["north"]) / 2)
+        else:
+            _, _, points = _validated_features({"features": base})
+            origin = _extent_origin(points)
     projection = _projection(origin)
     local_origin = dict(zip(("longitude", "latitude"), origin))
     registry_paths = list(dict.fromkeys([*manifest.get("sources", []), *map(str, sources)]))
@@ -272,6 +443,15 @@ def prepare_world_chunks(sources, output, *, previous=None, chunk_size=DEFAULT_C
         offset = end
 
     new_features = features[known_ids:]
+    citygml_items, suppressed, archive_skips = [], set(), {}
+    if old_citygml or new_citygml:
+        citygml_items, suppressed, archive_skips = _citygml_additions(
+            old_citygml, new_citygml, old_registry, registry, features, known_ids, projection, world_scale, progress)
+        for record in new_source_records:
+            dataset = record.get("source", {}).get("citygml")
+            if dataset is not None and dataset["id"] == KALASATAMA_EXTRACT:
+                record["verified_citygml_sha256"] = dataset["sha256"]
+    osm_geometry = [feature for feature in new_features if feature["id"] not in suppressed] if suppressed else new_features
     registry_path = output / "source.geojson"
     registry_data = _json_bytes(registry)
     provenance = {"path": str(registry_path), "sha256": hashlib.sha256(registry_data).hexdigest(),
@@ -280,15 +460,23 @@ def prepare_world_chunks(sources, output, *, previous=None, chunk_size=DEFAULT_C
     output.mkdir(parents=True, exist_ok=True)
     skipped = 0
     cells = []
-    if new_features:
+    if osm_geometry or citygml_items or suppressed or archive_skips:
         # Keep the canonical registry separate from the new-only geometry input.
-        additions = output / "added.geojson"
-        additions.write_bytes(_json_bytes({"type": "FeatureCollection", "features": new_features}))
-        meshes = {}
-        report = prepare(additions, output / "unused", default_height, level_height,
-                         overwrite=False, world_scale=world_scale, local_origin=origin,
-                         mesh_output=meshes.update, patrol_clearances=False, progress=progress,
-                         osm_rules=osm_rules)
+        meshes = {"items": [], "local_origin": local_origin, "projection": projection,
+                  "world_scale": world_scale, "osm_rules": osm_rules}
+        report = {"skipped": []}
+        if osm_geometry:
+            additions = output / "added.geojson"
+            additions.write_bytes(_json_bytes({"type": "FeatureCollection", "features": osm_geometry}))
+            report = prepare(additions, output / "unused", default_height, level_height,
+                             overwrite=False, world_scale=world_scale, local_origin=origin,
+                             mesh_output=meshes.update, patrol_clearances=False, progress=progress,
+                             osm_rules=osm_rules)
+        if citygml_items or suppressed or archive_skips:
+            meshes["items"].extend(citygml_items)
+            report["citygml"] = {"new_buildings": len(citygml_items), "suppressed_osm_buildings": sorted(suppressed),
+                                "archive_skipped_count": len(archive_skips),
+                                "archive_skipped": dict(sorted(archive_skips.items())[:20])}
         skipped = len(report["skipped"])
         (output / "report.json").write_bytes(_json_bytes(report))
         cells = _write_cells(output, meshes, provenance, size, progress)
@@ -307,6 +495,10 @@ def prepare_world_chunks(sources, output, *, previous=None, chunk_size=DEFAULT_C
                     "new_sources": len(records) - seen_records, "skipped_count": skipped,
                     "touched_chunks": len(cells)},
     }
+    if old_citygml or new_citygml:
+        plan["summary"].update(citygml_buildings=len(citygml_items), suppressed_osm_buildings=len(suppressed))
+    if archive_skips:
+        plan["summary"]["citygml_skipped_buildings"] = len(archive_skips)
     path = output / "plan.json"
     path.write_bytes(_json_bytes(plan))
     return path

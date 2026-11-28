@@ -10,6 +10,8 @@ const AppearanceProfile := preload("res://addons/spatial_toolkit/core/map_appear
 const GeoJSONSource := preload("res://addons/spatial_toolkit/core/spatial_geojson_source.gd")
 const SourceSelection := preload("res://addons/spatial_toolkit/ui/map_source_selection.gd")
 const WorldChunksPanel := preload("res://addons/spatial_toolkit/ui/world_chunks_panel.gd")
+const WorldStyleService := preload("res://addons/spatial_toolkit/core/world_style_service.gd")
+const APPEARANCE_REFRESH_SCRIPT := "res://addons/spatial_toolkit/core/world_appearance_refresh.gd"
 const NO_PROFILE_HINT := "Create maps with base colors and no appearance profile or finish textures."
 const DEFAULT_WORLD_CHUNK_SIZE_M := 1000.0
 
@@ -33,6 +35,20 @@ var _follow_open_world := true
 var _bake_service: Node
 var _bake_chunk_size: SpinBox
 var _baking := false
+var _flight_graph_service: Node
+var _flight_graph_undo: EditorUndoRedoManager
+var _flight_graph_bake_path: LineEdit
+var _flight_graph_dialog: EditorFileDialog
+var _flight_graph_min_y: SpinBox
+var _flight_graph_max_y: SpinBox
+var _flight_graph_agent_radius: SpinBox
+var _flight_graph_safety_margin: SpinBox
+var _flight_graph_build: Button
+var _flight_graph_scene_id := 0
+var _style_service: WorldStyleService
+var _style_preset_path: LineEdit
+var _style_preset_dialog: EditorFileDialog
+var _style_apply: Button
 var _editor: EditorInterface
 var _content: VBoxContainer
 var _source_selection := SourceSelection.new()
@@ -58,10 +74,19 @@ var _profile_path: LineEdit
 var _profile_clear: Button
 var _profile_open_dialog: EditorFileDialog
 var _busy := false
+var _appearance_refresh: RefCounted
+var _appearance_cancelled := false
+var _pending_appearance_worlds: Array[String] = []
+var _appearance_queue_scheduled := false
+var _refreshed_appearance_hashes := {}
 
 func setup(world_service: Node, editor: EditorInterface, bake_service: Node,
-		chunks_panel: WorldChunksPanel) -> void:
+		chunks_panel: WorldChunksPanel, flight_graph_service: Node,
+		flight_graph_undo: EditorUndoRedoManager, style_service: WorldStyleService) -> void:
 	_bake_service = bake_service
+	_flight_graph_service = flight_graph_service
+	_flight_graph_undo = flight_graph_undo
+	_style_service = style_service
 	_world_service = world_service
 	_editor = editor
 	_chunks_panel = chunks_panel
@@ -89,6 +114,7 @@ func setup(world_service: Node, editor: EditorInterface, bake_service: Node,
 	_output.name = "OutputPath"
 	_output.text = "res://generated/maps"
 	_setup_world_controls()
+	_setup_style_controls()
 	_report = RichTextLabel.new()
 	_report.name = "ImportReport"
 	_report.custom_minimum_size.y = 160
@@ -109,6 +135,10 @@ func setup(world_service: Node, editor: EditorInterface, bake_service: Node,
 	if _bake_service != null:
 		_bake_service.progress.connect(_on_progress)
 		_bake_service.completed.connect(_on_bake_completed)
+	_flight_graph_service.progress.connect(_on_progress)
+	_flight_graph_service.completed.connect(_on_flight_graph_completed)
+	_style_service.progress.connect(_on_progress)
+	_style_service.completed.connect(_on_style_completed)
 	_world_service.progress.connect(_on_progress)
 	_world_service.completed.connect(_on_world_completed)
 	refresh_scene(_editor.get_edited_scene_root())
@@ -150,6 +180,10 @@ func _exit_tree() -> void:
 		_profile_open_dialog.queue_free()
 	if is_instance_valid(_output_dialog):
 		_output_dialog.queue_free()
+	if is_instance_valid(_flight_graph_dialog):
+		_flight_graph_dialog.queue_free()
+	if is_instance_valid(_style_preset_dialog):
+		_style_preset_dialog.queue_free()
 
 func _note(text: String) -> Label:
 	var label := Label.new()
@@ -246,6 +280,9 @@ func prepare_sources(paths: PackedStringArray) -> bool:
 	return true
 
 func refresh_scene(root: Node) -> void:
+	var bake_manifest := _scene_bake_manifest(root)
+	if not _busy and not bake_manifest.is_empty():
+		_select_flight_graph_bake(bake_manifest)
 	var manifest_path := _scene_world_manifest(root)
 	if _follow_open_world and _world_path.text.is_empty() and not manifest_path.is_empty():
 		_select_world(manifest_path)
@@ -257,6 +294,7 @@ func refresh_scene(root: Node) -> void:
 		_chunks_panel.select_chunk(chunk_id)
 	_seed_sources(root)
 	_refresh_source_controls()
+	_refresh_style_controls(root)
 
 func _seed_sources(root: Node) -> void:
 	if _seed_opened_sources and not _busy and _append_sources(_scene_sources(root)):
@@ -364,6 +402,7 @@ func _setup_world_controls() -> void:
 	_world_sync = _button(atr("Create world"), _run_world)
 	_world_sync.name = "SyncChunkWorld"
 	_setup_world_bake_controls()
+	_setup_flight_graph_controls()
 	_content.add_child(HSeparator.new())
 	_world_dialog = EditorFileDialog.new()
 	_world_dialog.file_mode = EditorFileDialog.FILE_MODE_OPEN_FILE
@@ -571,6 +610,11 @@ func _on_world_completed(result: Dictionary) -> void:
 		lines.append(atr("New OSM objects · %d") % int(report["new_ids"]))
 	if report.has("unique_osm_ids"):
 		lines.append(atr("Total OSM objects · %d") % int(report["unique_osm_ids"]))
+	if report.has("citygml_buildings"):
+		lines.append(atr("New CityGML buildings · %d") % int(report["citygml_buildings"]))
+		lines.append(atr("OSM buildings omitted in CityGML areas · %d") % int(report["suppressed_osm_buildings"]))
+	if report.has("citygml_skipped_buildings"):
+		lines.append(atr("Skipped CityGML buildings · %d") % int(report["citygml_skipped_buildings"]))
 	if int(report.get("skipped_count", 0)) > 0:
 		lines.append(atr("Skipped objects · %d") % int(report["skipped_count"]))
 	_report.text = "\n".join(lines)
@@ -744,7 +788,10 @@ func _set_busy(value: bool) -> void:
 	_open.disabled = value or _last_scene.is_empty()
 	_progress_row.visible = value
 	_profile_path.editable = false
+	_flight_graph_bake_path.editable = false
+	_refresh_flight_graph_controls()
 	_refresh_profile_controls()
+	_refresh_style_controls(_editor.get_edited_scene_root())
 
 func _on_progress(message: String, fraction: float) -> void:
 	_set_status(message)
@@ -759,6 +806,68 @@ func _merge_summary(merge: Dictionary) -> String:
 func _open_last() -> void:
 	if not _last_scene.is_empty():
 		_pending_open = _last_scene
+
+func on_chunk_saved(path: String) -> void:
+	var root := _editor.get_edited_scene_root()
+	if root == null or root.scene_file_path != path:
+		return
+	var manifest := _scene_world_manifest(root)
+	if not manifest.is_empty() and not _pending_appearance_worlds.has(manifest):
+		_pending_appearance_worlds.append(manifest)
+		if not _appearance_queue_scheduled:
+			_appearance_queue_scheduled = true
+			_drain_appearance_queue.call_deferred()
+
+func _drain_appearance_queue() -> void:
+	while is_inside_tree() and not _pending_appearance_worlds.is_empty():
+		if _busy or not _pending_open.is_empty() or _editor.get_resource_filesystem().is_scanning():
+			await get_tree().process_frame
+		else:
+			var manifest: String = _pending_appearance_worlds.pop_front()
+			await _refresh_saved_appearance(manifest)
+	_appearance_queue_scheduled = false
+
+func _refresh_saved_appearance(manifest: String) -> void:
+	var bank_path := manifest.get_base_dir().path_join(SpatialAttributeBank.FILE_NAME)
+	if not FileAccess.file_exists(bank_path):
+		return
+	var fingerprint := FileAccess.get_sha256(bank_path)
+	if _refreshed_appearance_hashes.get(manifest, "") == fingerprint:
+		return
+	var script := load(APPEARANCE_REFRESH_SCRIPT) as Script
+	if script == null or not script.can_instantiate():
+		_set_status(atr("Could not load the world appearance refresh."))
+		return
+	_appearance_refresh = script.new()
+	_appearance_cancelled = false
+	_set_busy(true)
+	_appearance_refresh.connect("progress", _on_appearance_progress)
+	var result: Dictionary = await _appearance_refresh.call("run", manifest, self,
+		func(path: String) -> bool: return _editor.get_open_scenes().has(path),
+		func() -> bool: return _appearance_cancelled)
+	_appearance_refresh = null
+	if not is_inside_tree():
+		return
+	_set_busy(false)
+	var message: String
+	if result.get("ok", false):
+		_refreshed_appearance_hashes[manifest] = result["bank_hash"]
+		var updated := int(result["updated"])
+		var total := int(result["total"])
+		message = atr("World appearance applied · %d / %d · %d squares saved") % [total, total, updated]
+		if updated > 0:
+			_editor.get_resource_filesystem().scan()
+	elif result.get("cancelled", false):
+		message = atr("World appearance refresh cancelled.")
+	else:
+		message = str(result["error"])
+	_set_status(message)
+	_chunks_panel.set_status(message)
+
+func _on_appearance_progress(count: int, total: int) -> void:
+	var message := atr("Applying world appearance · %d / %d") % [count, total]
+	_on_progress(message, float(count) / maxf(total, 1))
+	_chunks_panel.set_status(message)
 
 func _process(_delta: float) -> void:
 	if _busy:
@@ -826,26 +935,169 @@ func _setup_world_bake_controls() -> void:
 	_content.add_child(_world_bake_window_detail)
 	_world_bake = _button(atr("Assemble and bake world"), _bake_world)
 	_world_bake.name = "BakeWorld"
+	_world_bake.tooltip_text = atr("Saves a numbered gameplay scene in the world's bakes folder.")
 
 func _refresh_drone_model_picker() -> void:
 	_world_bake_drone_model.editable = not _world_bake_drone.disabled and _world_bake_drone.button_pressed
 
+func _setup_flight_graph_controls() -> void:
+	_content.add_child(HSeparator.new())
+	_note(atr("Flight graph"))
+	_flight_graph_bake_path = _path_row(atr("Bake manifest"), "bake_manifest.json", _choose_flight_graph_bake)
+	_flight_graph_bake_path.name = "FlightGraphBakeManifestPath"
+	_flight_graph_bake_path.editable = false
+	_flight_graph_min_y = _flight_graph_setting(atr("Minimum flight altitude (gameplay m)"),
+		"FlightGraphMinY", -100000.0, 100000.0, 0.1, 0.0)
+	_flight_graph_max_y = _flight_graph_setting(atr("Maximum flight altitude (gameplay m)"),
+		"FlightGraphMaxY", -100000.0, 100000.0, 0.1, 128.0)
+	_flight_graph_agent_radius = _flight_graph_setting(atr("Drone radius (gameplay m)"),
+		"FlightGraphAgentRadius", 0.1, 100.0, 0.1, 1.0)
+	_flight_graph_safety_margin = _flight_graph_setting(atr("Obstacle safety margin (gameplay m)"),
+		"FlightGraphSafetyMargin", 0.0, 100.0, 0.1, 0.5)
+	_flight_graph_build = _button(atr("Build Flight Graph"), _build_flight_graph)
+	_flight_graph_build.name = "BuildFlightGraph"
+	_flight_graph_dialog = EditorFileDialog.new()
+	_flight_graph_dialog.file_mode = EditorFileDialog.FILE_MODE_OPEN_FILE
+	_flight_graph_dialog.access = EditorFileDialog.ACCESS_RESOURCES
+	_flight_graph_dialog.filters = PackedStringArray(["bake_manifest.json ; " + atr("Bake manifest")])
+	_flight_graph_dialog.title = atr("Choose a bake manifest")
+	_flight_graph_dialog.file_selected.connect(_select_flight_graph_bake)
+	_editor.get_base_control().add_child(_flight_graph_dialog)
+	_refresh_flight_graph_controls()
+
+func _flight_graph_setting(label: String, field_name: String, minimum: float, maximum: float,
+		step: float, default_value: float) -> SpinBox:
+	_note(label)
+	var field := _number(minimum)
+	field.name = field_name
+	field.min_value = minimum
+	field.max_value = maximum
+	field.step = step
+	var settings := _editor.get_editor_settings()
+	var key := field_name.to_snake_case()
+	field.value = float(settings.get_project_metadata("spatial_toolkit", key, default_value))
+	field.value_changed.connect(func(value: float): settings.set_project_metadata("spatial_toolkit", key, value))
+	return field
+
+func _choose_flight_graph_bake() -> void:
+	if _reject_busy():
+		return
+	if not _flight_graph_bake_path.text.is_empty():
+		_flight_graph_dialog.current_path = _flight_graph_bake_path.text
+	_flight_graph_dialog.popup_centered_ratio(0.65)
+
+func _select_flight_graph_bake(path: String) -> void:
+	if _busy:
+		return
+	var canonical := _local_manifest_path(path)
+	_flight_graph_bake_path.text = canonical
+	_flight_graph_bake_path.tooltip_text = canonical
+	_refresh_flight_graph_controls()
+
+func _refresh_flight_graph_controls() -> void:
+	_flight_graph_build.disabled = _busy or _flight_graph_bake_path.text.is_empty()
+
+func _local_manifest_path(path: String) -> String:
+	if path.strip_edges().is_empty():
+		return ""
+	return ProjectSettings.localize_path(ProjectSettings.globalize_path(path.strip_edges()).simplify_path())
+
+func _scene_bake_manifest(root: Node) -> String:
+	if root == null:
+		return ""
+	return _local_manifest_path(str(root.get_meta("bake_manifest_path", "")))
+
+func _build_flight_graph() -> void:
+	if _reject_busy() or _flight_graph_build.disabled:
+		return
+	_report.clear()
+	var bake_manifest := _flight_graph_bake_path.text
+	var root := _editor.get_edited_scene_root()
+	_flight_graph_scene_id = root.get_instance_id() if _scene_bake_manifest(root) == bake_manifest else 0
+	var result: Dictionary = _flight_graph_service.start(bake_manifest, Settings.python_executable(), {
+		"min_y_m": _flight_graph_min_y.value,
+		"max_y_m": _flight_graph_max_y.value,
+		"agent_radius_m": _flight_graph_agent_radius.value,
+		"safety_margin_m": _flight_graph_safety_margin.value,
+	})
+	_start_result(result)
+	if not result.get("ok", false):
+		_flight_graph_scene_id = 0
+
+func _on_flight_graph_completed(result: Dictionary) -> void:
+	_set_busy(false)
+	if not result.get("ok", false):
+		_flight_graph_scene_id = 0
+		_set_status(str(result.get("error", atr("Could not build the flight graph."))))
+		return
+	var manifest_path := str(result["manifest_path"])
+	var linked := _link_flight_graph(str(result["bake_manifest_path"]), manifest_path)
+	_flight_graph_scene_id = 0
+	var summary: Dictionary = result.get("summary", {})
+	var lines := PackedStringArray([
+		manifest_path,
+		atr("Navigation chunks · %d · Seam links · %d") % [summary.get("chunk_count", 0), summary.get("portal_count", 0)],
+		atr("Graph nodes · %d · Edges · %d") % [summary.get("node_count", 0), summary.get("edge_count", 0)],
+	])
+	if summary.has("empty_chunk_count"):
+		lines.append(atr("Chunks without navigable nodes · %d") % summary["empty_chunk_count"])
+		var empty_examples := PackedStringArray(summary.get("empty_chunk_examples", []))
+		if not empty_examples.is_empty():
+			lines.append(atr("Examples · %s") % ", ".join(empty_examples))
+	if summary.has("uncovered_chunk_count"):
+		lines.append(atr("Cells outside verified coverage · %d") % summary["uncovered_chunk_count"])
+		var uncovered_examples := PackedStringArray(summary.get("uncovered_chunk_examples", []))
+		if not uncovered_examples.is_empty():
+			lines.append(atr("Examples · %s") % ", ".join(uncovered_examples))
+	lines.append(atr("Patrol managers linked in the open scene · %d") % linked)
+	_report.text = "\n".join(lines)
+	_set_status(atr("Flight graph built. Save the scene to keep the patrol links.") if linked > 0
+		else atr("Flight graph built."))
+	_editor.get_resource_filesystem().scan()
+
+func _link_flight_graph(bake_manifest: String, graph_manifest: String) -> int:
+	var root := _editor.get_edited_scene_root()
+	var source := _local_manifest_path(bake_manifest)
+	if root == null or root.get_instance_id() != _flight_graph_scene_id or _scene_bake_manifest(root) != source:
+		return 0
+	var managers: Array[SpatialPatrolManager] = []
+	for node: Node in root.find_children("*", "", true, true):
+		var manager := node as SpatialPatrolManager
+		if manager == null or manager.owner != root or manager.graph_manifest_path == graph_manifest:
+			continue
+		if _scene_bake_manifest(manager.get_node_or_null(manager.map_root_path)) == source:
+			managers.append(manager)
+	if managers.is_empty():
+		return 0
+	_flight_graph_undo.create_action(atr("Link Flight Graph"), UndoRedo.MERGE_DISABLE, root)
+	for manager: SpatialPatrolManager in managers:
+		_flight_graph_undo.add_do_property(manager, "graph_manifest_path", graph_manifest)
+		_flight_graph_undo.add_undo_property(manager, "graph_manifest_path", manager.graph_manifest_path)
+	_flight_graph_undo.commit_action()
+	return managers.size()
+
 func _reject_busy() -> bool:
 	if _busy:
 		return true
-	for service: Node in [_world_service, _bake_service]:
+	for service: Node in [_world_service, _bake_service, _flight_graph_service, _style_service]:
 		if service != null and bool(service.get("busy")):
 			_set_status(atr("Wait for the current operation to finish, or cancel it."))
 			return true
 	return false
 
 func _cancel_operation() -> void:
-	if _starting_import:
+	if _appearance_refresh != null:
+		_appearance_cancelled = true
+	elif _starting_import:
 		_starting_import = false
 		_cancel.disabled = true
 		_set_status(atr("Import preparation cancelled."))
 	elif _baking and _bake_service != null:
 		_bake_service.cancel()
+	elif _flight_graph_service.busy:
+		_flight_graph_service.cancel()
+	elif is_instance_valid(_style_service) and _style_service.busy:
+		_style_service.cancel()
 	else:
 		_world_service.cancel()
 
@@ -855,7 +1107,7 @@ func _bake_world() -> void:
 	_report.clear()
 	_baking = true
 	var window_detail := is_instance_valid(_world_bake_window_detail) and _world_bake_window_detail.button_pressed
-	var result: Dictionary = _bake_service.bake_world(_world_path.text, _output.text,
+	var result: Dictionary = _bake_service.bake_world(_world_path.text, "",
 		_bake_chunk_size.value, Settings.merge_bake_collisions(), _world_bake_drone.button_pressed,
 		Settings.python_executable(), window_detail, _world_bake_drone_model.edited_resource as PackedScene)
 	_start_result(result)
@@ -871,10 +1123,105 @@ func _on_bake_completed(result: Dictionary) -> void:
 			_report.text = atr("Incomplete output: %s") % str(result["directory"])
 		return
 	_last_scene = str(result["scene_path"])
+	_select_flight_graph_bake(_last_scene.get_base_dir().path_join("bake_manifest.json"))
 	var report: Dictionary = result.get("report", {})
 	_set_status(atr("World baked. You can open the last scene."))
 	_report.text = _format_bake_report(report, _last_scene)
 	_open.disabled = false
+	_editor.get_resource_filesystem().scan()
+
+func _setup_style_controls() -> void:
+	_note(atr("World style"))
+	_style_preset_path = LineEdit.new()
+	_style_preset_path.name = "WorldStylePresetPath"
+	_style_preset_path.placeholder_text = atr("No style preset selected")
+	_style_preset_path.editable = false
+	_content.add_child(_style_preset_path)
+	var quick_load := _button(atr("Quick Load Style Preset"), _choose_style_preset)
+	quick_load.name = "QuickLoadStylePreset"
+	_style_apply = _button(atr("Apply Style to Saved Map"), _apply_style)
+	_style_apply.name = "ApplyWorldStyle"
+	_style_preset_dialog = EditorFileDialog.new()
+	_style_preset_dialog.name = "WorldStylePresetDialog"
+	_style_preset_dialog.file_mode = EditorFileDialog.FILE_MODE_OPEN_FILE
+	_style_preset_dialog.access = EditorFileDialog.ACCESS_RESOURCES
+	_style_preset_dialog.filters = PackedStringArray(["*.style.json ; " + atr("World style preset")])
+	_style_preset_dialog.title = atr("Choose a world style preset")
+	_style_preset_dialog.current_dir = WorldStyleService.DEFAULT_PRESET.get_base_dir()
+	_style_preset_dialog.file_selected.connect(_select_style_preset)
+	_editor.get_base_control().add_child(_style_preset_dialog)
+	_content.add_child(HSeparator.new())
+
+func _choose_style_preset() -> void:
+	if _reject_busy():
+		return
+	if not _style_preset_path.text.is_empty():
+		_style_preset_dialog.current_path = _style_preset_path.text
+	_style_preset_dialog.popup_centered_ratio(0.65)
+
+func _select_style_preset(path: String) -> void:
+	if _reject_busy():
+		return
+	if not path.ends_with(".style.json"):
+		_set_status(atr("Select a .style.json preset."))
+		return
+	var selected := WorldStyleService.load_preset(path)
+	if not selected.get("ok", false):
+		_set_status(str(selected["error"]))
+		return
+	_style_preset_path.text = str(selected["path"])
+	_style_preset_path.tooltip_text = _style_preset_path.text
+	_refresh_style_controls(_editor.get_edited_scene_root())
+	_set_status(atr("Style preset selected."))
+
+func _style_source(root: Node) -> String:
+	if not root is Node3D or root.has_meta("scene_bake"):
+		return ""
+	var generated := root.get_node_or_null("Generated")
+	if generated == null or not generated.has_meta("source") or not generated.has_node("Buildings"):
+		return ""
+	var path := root.scene_file_path
+	if not path.begins_with("res://") or path.get_extension() not in ["tscn", "scn"] or not FileAccess.file_exists(path):
+		return ""
+	return path
+
+func _refresh_style_controls(root: Node) -> void:
+	# On a script reload the existing dock can predate the style controls.
+	if not is_instance_valid(_style_apply) or not is_instance_valid(_style_preset_path):
+		return
+	var source := _style_source(root)
+	_style_apply.disabled = _busy or not is_instance_valid(_style_service) or source.is_empty() \
+		or _style_preset_path.text.is_empty()
+	_style_apply.tooltip_text = atr("Saves a styled copy of the open map.") if not source.is_empty() \
+		else atr("Open a saved editable Spatial map to apply a style.")
+
+func _apply_style() -> void:
+	if _reject_busy() or _style_apply.disabled:
+		return
+	var root := _editor.get_edited_scene_root()
+	var source := _style_source(root)
+	if source.is_empty():
+		_refresh_style_controls(root)
+		_set_status(atr("Open a saved editable Spatial map to apply a style."))
+		return
+	var folder := source.get_base_dir()
+	var world := _local_manifest_path(_scene_world_manifest(root))
+	if world.get_file() == "world.json" and source.begins_with(world.get_base_dir() + "/") and FileAccess.file_exists(world):
+		folder = world.get_base_dir()
+	_report.clear()
+	_start_result(_style_service.style_scene(source, folder.path_join("styles"), _style_preset_path.text, null))
+
+func _on_style_completed(result: Dictionary) -> void:
+	_set_busy(false)
+	if not result.get("ok", false):
+		_set_status(str(result.get("error", atr("Could not style the map."))))
+		if result.has("directory"):
+			_report.text = atr("Incomplete output: %s") % str(result["directory"])
+		return
+	_last_scene = str(result["scene_path"])
+	_report.text = _last_scene
+	_open.disabled = false
+	_set_status(atr("Styled map saved. You can open the last scene."))
 	_editor.get_resource_filesystem().scan()
 
 func _format_bake_report(report: Dictionary, scene_path: String) -> String:

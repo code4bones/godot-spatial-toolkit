@@ -9,8 +9,10 @@ const Map := preload("res://addons/spatial_toolkit/core/spatial_map.gd")
 const Layers := preload("res://addons/spatial_toolkit/core/spatial_layers.gd")
 const Flight := preload("res://addons/spatial_toolkit/core/map_flight_module.gd")
 const Night := preload("res://addons/spatial_toolkit/runtime/night_city_style.gd")
+const MapStyle := preload("res://addons/spatial_toolkit/core/map_style_module.gd")
 const SOURCE_CHILDREN := ["Generated", "FlatGround", "PreviewSun", "PreviewEnvironment", "OverviewCamera", "PreviewLegend"]
 const VIEW_CHILDREN := ["PreviewSun", "PreviewEnvironment", "OverviewCamera", "PreviewLegend"]
+const WINDOW_FRAME_BUDGET_USEC := 12000
 
 var _world: Node3D
 var _source: Node
@@ -36,6 +38,13 @@ func assemble(manifest_path: String, host: Node, cancelled: Callable, add_drone 
 	var registry := _world_file(path.get_base_dir(), index["registry"])
 	if registry.is_empty():
 		return _error(Localization.translate("The world index has an invalid feature registry path."))
+	var bank_path := path.get_base_dir().path_join(SpatialAttributeBank.FILE_NAME)
+	var bank_hash := FileAccess.get_sha256(bank_path) if FileAccess.file_exists(bank_path) else ""
+	var world_bank: SpatialAttributeBank
+	if not bank_hash.is_empty():
+		world_bank = ResourceLoader.load(bank_path, "Resource", ResourceLoader.CACHE_MODE_IGNORE) as SpatialAttributeBank
+		if world_bank == null:
+			return _error(Localization.translate("Could not open the world's attribute bank."))
 	if not is_instance_valid(host) or not host.is_inside_tree():
 		return _error(Localization.translate("The assembly service must be in the scene tree."))
 	var tree := host.get_tree()
@@ -84,8 +93,19 @@ func assemble(manifest_path: String, host: Node, cancelled: Callable, add_drone 
 			return _error(scene_path + "\n" + invalid)
 		var square := _source as Node3D
 		var sky := str(square.get("sky_mode"))
-		var bank := square.get("attribute_bank") as SpatialAttributeBank
-		_apply_window_styles(square, bank)
+		var bank := world_bank if world_bank != null else square.get("attribute_bank") as SpatialAttributeBank
+		var yield_after := Time.get_ticks_usec() + WINDOW_FRAME_BUDGET_USEC
+		for building: MeshInstance3D in Layers.buildings(square):
+			MapStyle.retrofit_citygml_windows(building)
+			if Time.get_ticks_usec() >= yield_after:
+				await tree.process_frame
+				if _cancelled(host, cancelled):
+					return _cancel()
+				yield_after = Time.get_ticks_usec() + WINDOW_FRAME_BUDGET_USEC
+		if bank != null:
+			square.set("attribute_bank", bank)
+			bank.apply_to_map(square)
+		Layers.apply(square)
 		sky_modes[sky] = int(sky_modes.get(sky, 0)) + 1
 		if position == 0:
 			mode = str(bank.sky_mode) if bank != null else sky
@@ -138,37 +158,13 @@ func assemble(manifest_path: String, host: Node, cancelled: Callable, add_drone 
 	_world = null
 	return {"ok": true, "map": world, "source": {
 		"source_world": path, "source_world_sha256": fingerprint, "source_revision": int(index["revision"]),
+		"source_attribute_bank": bank_path if world_bank != null else "", "source_attribute_bank_sha256": bank_hash,
 		"source_scene_count": ids.size(), "source_scenes": scenes, "world_scale": float(index["world_scale"]),
 		"extent_gameplay_m": [extent.position.x, extent.position.y, extent.size.x, extent.size.y],
 		"saved_sky_mode": mode, "source_sky_modes": sky_modes, "add_drone": add_drone,
 		"drone_model": drone_model.resource_path if add_drone and drone_model != null else "",
 		"limits": ["No streaming or HLOD", "The flight floor spans the assembled world bounds",
 			"Street/address labels and dynamic night uplights need a separate baked data overlay"]}}
-
-func _apply_window_styles(square: Node3D, bank: SpatialAttributeBank) -> void:
-	var refresh := false
-	for layer in Layers.style_nodes(square):
-		var group := layer as SpatialBuildingLayer3D
-		if group == null:
-			continue
-		var style := group.window_style
-		var layout := group.window_layout
-		if bank != null:
-			var rule: Dictionary = bank.layer_styles.get(group.style_key, {})
-			style = rule.get("window_style") as SpatialWindowStyle
-			layout = rule.get("window_layout") as SpatialWindowLayout
-		if style != group.window_style:
-			group.window_style = style
-			refresh = true
-		elif style != null:
-			refresh = true
-		if layout != group.window_layout:
-			group.window_layout = layout
-			refresh = true
-		elif layout != null:
-			refresh = true
-	if refresh:
-		Layers.apply(square)
 
 func _finish_world(index: Dictionary, path: String, registry: String, extent: Rect2,
 		mode: String, host: Node, add_drone: bool, drone_model: PackedScene, sky_settings: SpatialSkySettings) -> Dictionary:

@@ -95,6 +95,9 @@ msgstr "Ночь"
 msgid "Drone Controls"
 msgstr "Управление дроном"
 
+msgid "Target Lock"
+msgstr "Захват цели"
+
 msgid "Camera Framing"
 msgstr "Кадрирование камеры"
 
@@ -106,6 +109,9 @@ msgstr "Крен и слежение у края"
 
 msgid "Reticle Flight"
 msgstr "Полёт по прицелу"
+
+msgid "Gamepad Flight"
+msgstr "Полёт с геймпадом"
 
 msgid "Reticle Flight Controls"
 msgstr "Управление полётом по прицелу"
@@ -194,6 +200,40 @@ msgstr "Перетащите в поле материала в Инспекто�
 msgid "Draw BBox"
 msgstr "Нарисовать границы"
 
+msgid "Draw inside the purple CityGML coverage, or select Default map for OSM only."
+msgstr "Выделите область внутри фиолетовой рамки CityGML или выберите обычную карту для импорта OSM."
+
+msgid "3D model extent"
+msgstr "Границы 3D-моделей"
+
+msgid "The local CityGML archive is unavailable."
+msgstr "Локальный архив CityGML недоступен."
+
+msgid "CityGML requires a BBox whose west edge comes before its east edge."
+msgstr "Для CityGML западная граница области должна быть западнее восточной."
+
+msgid "Enable the OSM Buildings layer to fetch areas with a CityGML archive."
+msgstr "Включите слой зданий OSM, чтобы загрузить области с архивом CityGML."
+
+#, c-format
+msgid "Area %d uses CityGML buildings."
+msgstr "Для области %d выбраны здания из CityGML."
+
+msgid "CityGML buildings. Table counts describe downloaded OSM features."
+msgstr "Здания из CityGML. В таблице указано количество загруженных объектов OSM."
+
+#, c-format
+msgid "New CityGML buildings · %d"
+msgstr "Новых зданий CityGML · %d"
+
+#, c-format
+msgid "OSM buildings omitted in CityGML areas · %d"
+msgstr "Исключено зданий OSM в областях CityGML · %d"
+
+#, python-format
+msgid "Skipped CityGML buildings · %d"
+msgstr "Пропущено зданий CityGML · %d"
+
 msgid "Draw BBox active"
 msgstr "Рисование границ включено"
 
@@ -242,6 +282,98 @@ msgstr "Широта, долгота"
 
 msgid "Go to"
 msgstr "Перейти"
+
+msgid "Default map"
+msgstr "Обычная карта"
+
+msgid "Helsinki · CityGML archive"
+msgstr "Хельсинки · Архив CityGML"
+
+msgid "Download 3D archive"
+msgstr "Скачать 3D-архив"
+
+msgid "Download"
+msgstr "Скачать"
+
+msgid "Close"
+msgstr "Закрыть"
+
+msgid "Download the archive in the 3D data menu."
+msgstr "Скачайте архив через меню «3D-данные»."
+
+msgid "Later"
+msgstr "Позже"
+
+#, c-format
+msgid "Download 3D models for %s?\n%s"
+msgstr "Скачать 3D-модели для пресета «%s»?\n%s"
+
+#, c-format
+msgid "Local archive size: about %d MB."
+msgstr "Размер локального архива — около %d МБ."
+
+#, c-format
+msgid "Download size: about %d MB."
+msgstr "Объём загрузки — около %d МБ."
+
+msgid "Preparing 3D archive download…"
+msgstr "Подготовка к загрузке 3D-архива…"
+
+msgid "Downloading 3D data…"
+msgstr "Загрузка 3D-данных…"
+
+msgid "Verifying the CityGML archive…"
+msgstr "Проверка архива CityGML…"
+
+msgid "Preparing the CityGML archive…"
+msgstr "Подготовка архива CityGML…"
+
+msgid "Invalid CityGML cache path."
+msgstr "Некорректный путь к кэшу CityGML."
+
+#, c-format
+msgid "Could not create the CityGML cache (%s)."
+msgstr "Не удалось создать кэш CityGML (%s)."
+
+msgid "The 3D archive download stopped reporting progress."
+msgstr "Загрузка 3D-архива перестала сообщать о ходе работы."
+
+#, c-format
+msgid "Invalid CityGML download response (code %d).\n%s"
+msgstr "Некорректный ответ загрузчика CityGML (код %d).\n%s"
+
+#, c-format
+msgid "Could not download the 3D archive.\n%s"
+msgstr "Не удалось скачать 3D-архив.\n%s"
+
+#, c-format
+msgid "CityGML archive %s. Fetch the OSM Buildings layer with this preset."
+msgstr "Архив CityGML %s. Для этого пресета загрузите слой зданий OSM."
+
+msgid "Montréal · Ville-Marie"
+msgstr "Монреаль · Виль-Мари"
+
+msgid "Munich · TUM Campus (full LoD3)"
+msgstr "Мюнхен · Кампус TUM (полный LoD3)"
+
+msgid "Zürich"
+msgstr "Цюрих"
+
+msgid "Lyon · Presqu’île"
+msgstr "Лион · Прескиль"
+
+msgid "3D data"
+msgstr "3D-данные"
+
+msgid "Open dataset catalog"
+msgstr "Открыть каталог данных"
+
+msgid "Open prepared 3D scene"
+msgstr "Открыть готовую 3D-сцену"
+
+#, c-format
+msgid "Could not open the 3D dataset link (%s)."
+msgstr "Не удалось открыть источник 3D-данных (%s)."
 
 msgid "Open GeoJSON…"
 msgstr "Открыть GeoJSON…"
@@ -1045,6 +1177,13 @@ msgid "Dividing into squares · %d / %d"
 msgstr "Разделение по сетке · %d / %d"
 
 #, c-format
+msgid "Reading CityGML archive · %d%%"
+msgstr "Чтение архива CityGML · %d%%"
+
+msgid "The CityGML worker did not report progress for 180 seconds."
+msgstr "Обработка CityGML не сообщала о ходе работы 180 секунд."
+
+#, c-format
 msgid "Duplicate source_id: %s"
 msgstr "Повторный source_id: %s"
 
@@ -1305,6 +1444,27 @@ msgstr "Некорректный режим неба исходной сцены
 msgid "The source scenes or world index changed. Retry the bake."
 msgstr "Исходные сцены или индекс мира изменились. Повторите запекание."
 
+msgid "The world's attribute bank changed. Retry the bake."
+msgstr "Банк атрибутов мира изменился. Повторите запекание."
+
+msgid "Applying world appearance · %d / %d"
+msgstr "Применение оформления мира · %d / %d"
+
+msgid "World appearance applied · %d / %d · %d squares saved"
+msgstr "Оформление применено · %d / %d · Сохранено квадратов: %d"
+
+msgid "World appearance refresh cancelled."
+msgstr "Обновление оформления мира отменено."
+
+msgid "The world index or attribute bank changed. Save the square again."
+msgstr "Индекс мира или банк атрибутов изменился. Сохраните квадрат ещё раз."
+
+msgid "Could not refresh the appearance of square %s."
+msgstr "Не удалось обновить оформление квадрата %s."
+
+msgid "Could not load the world appearance refresh."
+msgstr "Не удалось запустить обновление оформления мира."
+
 msgid "The square index is missing or invalid."
 msgstr "Индекс квадратов отсутствует или повреждён."
 
@@ -1547,3 +1707,206 @@ msgstr "Загрузка предпросмотра квадрата…"
 
 msgid "Square preview unavailable."
 msgstr "Предпросмотр квадрата недоступен."
+
+msgid "Add Patrol Manager"
+msgstr "Добавить менеджер патрулей"
+
+msgid "Draw Patrol Zone"
+msgstr "Нарисовать зону патруля"
+
+msgid "Top Orthogonal · Drag LMB · Esc cancels"
+msgstr "Вид сверху · Тяните ЛКМ · Esc отменяет"
+
+msgid "Use Top Orthogonal to draw patrol zones"
+msgstr "Для разметки зон включите ортогональный вид сверху"
+
+msgid "Patrol zone corner"
+msgstr "Угол зоны патруля"
+
+msgid "Resize patrol zone"
+msgstr "Изменить размер зоны патруля"
+
+msgid "Add patrol zone"
+msgstr "Добавить зону патруля"
+
+msgid "Patrol zone added"
+msgstr "Зона патруля добавлена"
+
+msgid "Open a baked map scene first"
+msgstr "Откройте запечённую карту"
+
+msgid "Patrol Zone"
+msgstr "Зона патруля"
+
+msgid "Nav. chunk %s · %.1f × %.1f m"
+msgstr "Нав. чанк %s · %.1f × %.1f м"
+
+msgid "unpublished"
+msgstr "не опубликован"
+
+msgid "Set a valid navigation manifest on PatrolManager"
+msgstr "Укажите действительный манифест навигации у PatrolManager"
+
+msgid "Navigation manifest has an invalid grid"
+msgstr "В манифесте навигации указана некорректная сетка"
+
+msgid "Flight graph"
+msgstr "Граф полётов"
+
+msgid "Bake manifest"
+msgstr "Манифест запекания"
+
+msgid "Choose a bake manifest"
+msgstr "Выберите манифест запекания"
+
+msgid "Minimum flight altitude (gameplay m)"
+msgstr "Минимальная высота полёта (игровые м)"
+
+msgid "Maximum flight altitude (gameplay m)"
+msgstr "Максимальная высота полёта (игровые м)"
+
+msgid "Drone radius (gameplay m)"
+msgstr "Радиус дрона (игровые м)"
+
+msgid "Obstacle safety margin (gameplay m)"
+msgstr "Запас до препятствий (игровые м)"
+
+msgid "Build Flight Graph"
+msgstr "Построить граф полётов"
+
+msgid "Could not build the flight graph."
+msgstr "Не удалось построить граф полётов."
+
+#, c-format
+msgid "Navigation chunks · %d · Seam links · %d"
+msgstr "Навигационные чанки · %d · Переходы · %d"
+
+#, c-format
+msgid "Graph nodes · %d · Edges · %d"
+msgstr "Узлы графа · %d · Рёбра · %d"
+
+#, c-format
+msgid "Chunks without navigable nodes · %d"
+msgstr "Чанки без доступных узлов · %d"
+
+#, c-format
+msgid "Cells outside verified coverage · %d"
+msgstr "Ячейки за пределами подтверждённого покрытия · %d"
+
+#, c-format
+msgid "Examples · %s"
+msgstr "Примеры · %s"
+
+#, c-format
+msgid "Patrol managers linked in the open scene · %d"
+msgstr "Подключено менеджеров патрулей в открытой сцене · %d"
+
+msgid "Flight graph built. Save the scene to keep the patrol links."
+msgstr "Граф полётов построен. Сохраните сцену, чтобы сохранить привязки патрулей."
+
+msgid "Flight graph built."
+msgstr "Граф полётов построен."
+
+msgid "Link Flight Graph"
+msgstr "Подключение графа полётов"
+
+msgid "Wait for the current flight graph build to finish, or cancel it."
+msgstr "Дождитесь окончания построения графа полётов или отмените операцию."
+
+msgid "Choose a saved bake_manifest.json inside this project."
+msgstr "Выберите сохранённый bake_manifest.json внутри проекта."
+
+msgid "The local flight graph worker could not be found."
+msgstr "Локальный генератор графа полётов не найден."
+
+msgid "The maximum flight height must be higher than the minimum."
+msgstr "Максимальная высота полёта должна быть выше минимальной."
+
+msgid "Use a positive drone radius and a nonnegative safety margin."
+msgstr "Укажите положительный радиус дрона и неотрицательный запас до препятствий."
+
+msgid "Preparing flight graph…"
+msgstr "Подготовка к построению графа полётов…"
+
+msgid "The flight graph worker response is too large."
+msgstr "Слишком большой ответ генератора графа полётов."
+
+#, c-format
+msgid "Flight graph worker exited with code %d."
+msgstr "Генератор графа полётов завершился с кодом %d."
+
+msgid "The flight graph worker did not publish the expected manifest."
+msgstr "Генератор графа полётов не опубликовал ожидаемый манифест."
+
+#, c-format
+msgid "Building flight graph · %d/%d cells checked"
+msgstr "Построение графа полётов · проверено ячеек %d/%d"
+
+msgid "Could not stop the flight graph worker."
+msgstr "Не удалось остановить генератор графа полётов."
+
+msgid "Flight graph build cancelled."
+msgstr "Построение графа полётов отменено."
+
+msgid "Quick Load Flight Graph"
+msgstr "Быстро подключить граф полётов"
+
+msgid "Use the published flight graph for this baked map."
+msgstr "Подключает опубликованный граф полётов этой запечённой карты."
+
+msgid "No flight graph for this map. Use Spatial → Build Flight Graph."
+msgstr "Для этой карты нет графа полётов. В Spatial нажмите «Построить граф полётов»."
+
+msgid "Choose Flight Graph"
+msgstr "Выбрать граф полётов"
+
+msgid "Saves a numbered gameplay scene in the world's bakes folder."
+msgstr "Сохраняет очередную версию игровой сцены в папке bakes внутри мира."
+
+msgid "Clear Flight Graph"
+msgstr "Отключить граф полётов"
+
+msgid "Flight graph manifest"
+msgstr "Манифест графа полётов"
+
+msgid "Legacy flight graph manifest"
+msgstr "Манифест графа полётов старого формата"
+
+msgid "Select a valid flight graph manifest."
+msgstr "Выберите корректный манифест графа полётов."
+
+msgid "World style"
+msgstr "Стиль мира"
+
+msgid "No style preset selected"
+msgstr "Пресет стиля не выбран"
+
+msgid "Quick Load Style Preset"
+msgstr "Быстро загрузить пресет стиля"
+
+msgid "Apply Style to Saved Map"
+msgstr "Применить стиль к сохранённой карте"
+
+msgid "World style preset"
+msgstr "Пресет стиля мира"
+
+msgid "Choose a world style preset"
+msgstr "Выберите пресет стиля мира"
+
+msgid "Select a .style.json preset."
+msgstr "Выберите пресет с расширением .style.json."
+
+msgid "Style preset selected."
+msgstr "Пресет стиля выбран."
+
+msgid "Saves a styled copy of the open map."
+msgstr "Сохраняет оформленную копию открытой карты."
+
+msgid "Open a saved editable Spatial map to apply a style."
+msgstr "Для применения стиля откройте сохранённую редактируемую карту Spatial."
+
+msgid "Could not style the map."
+msgstr "Не удалось применить стиль к карте."
+
+msgid "Styled map saved. You can open the last scene."
+msgstr "Копия карты со стилем сохранена. Можно открыть последнюю сцену."

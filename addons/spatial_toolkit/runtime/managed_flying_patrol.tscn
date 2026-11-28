@@ -1,0 +1,44 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://addons/spatial_toolkit/runtime/managed_flying_patrol.gd" id="1"]
+[ext_resource type="PackedScene" path="res://addons/spatial_toolkit/runtime/micro_ship.tscn" id="2"]
+
+[sub_resource type="SphereShape3D" id="CameraShape"]
+radius = 0.15
+
+[node name="FlyingPatrol" type="CharacterBody3D"]
+collision_layer = 4
+collision_mask = 1
+script = ExtResource("1")
+autostart = false
+visual_path = NodePath("Visual")
+smooth_graph_patrol = true
+stagger_graph_patrol = true
+blend_staggered_legs = true
+
+[node name="Visual" type="Node3D" parent="."]
+
+[node name="MicroShip" parent="Visual" instance=ExtResource("2")]
+
+[node name="CameraBoom" type="SpringArm3D" parent="Visual"]
+position = Vector3(0, 2.2, 0)
+collision_mask = 1
+shape = SubResource("CameraShape")
+spring_length = 8.0
+margin = 0.12
+
+[node name="PatrolCamera" type="Camera3D" parent="Visual/CameraBoom"]
+position = Vector3(0, 0, 8)
+rotation = Vector3(-0.19, 0, 0)
+near = 0.1
+far = 4000.0
+
+[node name="Marker" type="Label3D" parent="."]
+position = Vector3(0, 2, 0)
+billboard = 1
+pixel_size = 0.03
+modulate = Color(1, 0.22, 0.62, 1)
+outline_modulate = Color(0.07, 0.015, 0.05, 1)
+text = "◆"
+font_size = 40
+outline_size = 10

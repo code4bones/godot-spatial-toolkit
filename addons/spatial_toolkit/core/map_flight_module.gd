@@ -15,6 +15,7 @@ const CONTROLLER_LABELS := {
 	"signed_wheel_drone": "Классический",
 	"viewport_bank": "Крен и слежение у края · эксперимент",
 	"reticle_flight": "Полёт по прицелу",
+	"gamepad_flight": "Полёт с геймпадом",
 }
 const CRAFT := preload("res://addons/spatial_toolkit/runtime/micro_ship.tscn")
 const EYE_HEIGHT := 0.7
@@ -159,7 +160,7 @@ static func _apply_audio_defaults(camera: Camera3D) -> void:
 			camera.set(volume_key, clampf(float(volume), -80.0, 6.0))
 
 static func _report(player: CharacterBody3D, created: int, existing: int) -> Dictionary:
-	var controller: String = player.get_meta("flight_controller", DEFAULT_CONTROLLER)
+	var controller: String = player.get_meta("flight_controller", Drone.CLASSIC_CONTROLLER)
 	if player is Drone:
 		controller = Drone.CONTROLLER_IDS[player.flight_controller]
 	return {"success": true, "created": created, "existing": existing,

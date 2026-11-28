@@ -8,6 +8,7 @@ const FLAT_SHADER_PATH := "res://addons/spatial_toolkit/materials/flat_map_surfa
 const Layers := preload("res://addons/spatial_toolkit/core/spatial_layers.gd")
 const FacadeWindows := preload("res://addons/spatial_toolkit/core/facade_windows.gd")
 const WindowPreview := preload("res://addons/spatial_toolkit/runtime/facade_window_preview.gd")
+const LAYER_ORIGINAL := &"spatial_layer_original_material"
 const PALETTE := [Color("c8bda8"), Color("b6c0c3"), Color("dfd9c9"), Color("b38c75"), Color("afb5a1")]
 const STYLE_FRAME_BUDGET_USEC := 12000
 const BUILDING_FLOOR_PRIORITY := -70
@@ -118,6 +119,42 @@ static func _prepare_style(map: Node3D) -> Dictionary:
 		return {"success": false, "error": "Map facade or flat-surface shader unavailable"}
 	return {"success": true, "facade_shader": facade}
 
+static func retrofit_citygml_windows(building: MeshInstance3D) -> void:
+	if building.mesh == null or not FacadeWindows.is_citygml(building) or building.has_meta(FacadeWindows.METADATA):
+		return
+	var slots := {}
+	if building.material_override != null:
+		slots["material_override"] = building.material_override
+	else:
+		for surface in building.mesh.get_surface_count():
+			slots["surface_material_override/%d" % surface] = building.get_active_material(surface)
+	var layout := {}
+	var copies := {}
+	var floor_height := FacadeWindows.floor_height_for(building)
+	for slot: String in slots:
+		var material := slots[slot] as ShaderMaterial
+		if not _is_facade_shader(material) or material.get_shader_parameter("section_windows") == true:
+			continue
+		if layout.is_empty():
+			layout = FacadeWindows.prepare_citygml(building, true)
+		if not copies.has(material):
+			copies[material] = _retrofit_facade_material(material, layout, floor_height)
+		building.set(slot, copies[material])
+
+static func _is_facade_shader(material: ShaderMaterial) -> bool:
+	return material != null and material.shader != null and material.shader.resource_path == FACADE_SHADER_PATH
+
+static func _retrofit_facade_material(material: ShaderMaterial, layout: Dictionary, floor_height: float) -> ShaderMaterial:
+	var patched := material.duplicate() as ShaderMaterial
+	WindowPreview.configure_section_layout(patched, layout, floor_height)
+	var original: Array = material.get_meta(LAYER_ORIGINAL, [])
+	if original.size() == 2 and _is_facade_shader(original[0] as ShaderMaterial):
+		# Later group styles can restore this baseline. Keep the new atlas there too.
+		var baseline := (original[0] as ShaderMaterial).duplicate() as ShaderMaterial
+		WindowPreview.configure_section_layout(baseline, layout, floor_height)
+		patched.set_meta(LAYER_ORIGINAL, [baseline, baseline if original[1] == null or original[1] == original[0] else original[1]])
+	return patched
+
 static func _style_building(building: MeshInstance3D, shader: Shader, layout: Dictionary = {}) -> bool:
 	var tags: Dictionary = building.get_meta("source_tags", {})
 	var id := str(building.get_meta("source_id", building.name))
@@ -145,19 +182,22 @@ static func _style_building(building: MeshInstance3D, shader: Shader, layout: Di
 	material.set_shader_parameter("open_windows",
 		bool(openings.get("enabled", false)) and not bool(building.get_meta("painted_windows", false)))
 	material.set_shader_parameter("building_seed", float(seed % 997))
+	if layout.is_empty() and FacadeWindows.is_citygml(building):
+		layout = FacadeWindows.prepare_citygml(building, true)
 	if not layout.is_empty():
 		WindowPreview.configure_section_layout(material, layout, floor_height)
 	var floor_index := int(building.get_meta("floor_surface_index", -1))
 	var foundation_index := int(building.get_meta("foundation_surface_index", -1))
+	var modeled_openings: PackedInt32Array = building.get_meta("measured_opening_surfaces", PackedInt32Array())
 	var surfaces := building.mesh.get_surface_count() if building.mesh != null else 0
 	var has_floor := floor_index >= 0 and floor_index < surfaces
 	var has_foundation := foundation_index >= 0 and foundation_index < surfaces
-	if has_floor or has_foundation:
+	if has_floor or has_foundation or not modeled_openings.is_empty():
 		# Per-surface materials retain opaque upper walls/roof. The original floor
 		# and foundation band join the ordered pass above the flat map layers.
 		building.material_override = null
 		for surface: int in surfaces:
-			if surface != floor_index and surface != foundation_index:
+			if surface != floor_index and surface != foundation_index and surface not in modeled_openings:
 				building.set_surface_override_material(surface, material)
 	else:
 		building.material_override = material
